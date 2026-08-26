@@ -6,10 +6,12 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string
   hint?: string
   leftIcon?: ReactNode
+  rightIcon?: ReactNode
+  rightElement?: ReactNode
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, leftIcon, className, id, ...props },
+  { label, error, hint, leftIcon, rightIcon, rightElement, className, id, ...props },
   ref,
 ) {
   const inputId = id ?? props.name
@@ -23,7 +25,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       )}
       <div className="relative">
         {leftIcon && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-300">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">
             {leftIcon}
           </span>
         )}
@@ -35,11 +37,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             'focus:outline-none focus:ring-2 focus:ring-brand-600/30 focus:border-brand-600',
             'disabled:cursor-not-allowed disabled:bg-ink-50',
             leftIcon && 'pl-9',
+            (rightIcon || rightElement) && 'pr-10',
             error ? 'border-red-400' : 'border-ink-200',
             className,
           )}
           {...props}
         />
+        {rightElement ? (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+            {rightElement}
+          </div>
+        ) : rightIcon ? (
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400">
+            {rightIcon}
+          </span>
+        ) : null}
       </div>
       {error ? (
         <p className="mt-1 text-xs text-red-600">{error}</p>

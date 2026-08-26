@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, LogOut, Menu, Search, ShieldAlert } from 'lucide-react'
+import { Bell, LogOut, Menu, Search } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
 import { useAuth } from '@/hooks/useAuth'
-import { useGetReportsQuery } from '@/services/endpoints/moderationApi'
-import { formatRelative } from '@/lib/format'
 import { ROUTES } from '@/constants/routes'
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
@@ -12,10 +10,6 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
-
-  // Open reports drive the notification feed + unread dot.
-  const { data: reports } = useGetReportsQuery({ status: 'open', pageSize: 6 })
-  const openReports = reports?.items ?? []
 
   const handleLogout = () => {
     logout()
@@ -46,9 +40,6 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
             aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />
-            {openReports.length > 0 && (
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-600 ring-2 ring-white" />
-            )}
           </button>
           {notifOpen && (
             <>
@@ -56,46 +47,10 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="absolute right-0 z-20 mt-2 w-80 animate-fade-in rounded-lg border border-ink-100 bg-white shadow-dropdown">
                 <div className="flex items-center justify-between border-b border-ink-100 px-4 py-2.5">
                   <p className="text-sm font-semibold text-ink-900">Notifications</p>
-                  <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
-                    {openReports.length} new
-                  </span>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {openReports.length === 0 ? (
-                    <p className="px-4 py-8 text-center text-sm text-ink-500">You’re all caught up 🎉</p>
-                  ) : (
-                    openReports.map((r) => (
-                      <button
-                        key={r.id}
-                        onClick={() => {
-                          setNotifOpen(false)
-                          navigate(ROUTES.reports)
-                        }}
-                        className="flex w-full items-start gap-3 border-b border-ink-50 px-4 py-3 text-left last:border-0 hover:bg-ink-50"
-                      >
-                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
-                          <ShieldAlert className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm text-ink-900">
-                            New report on <span className="font-medium">{r.targetName}</span>
-                          </span>
-                          <span className="block truncate text-xs text-ink-500">{r.reason}</span>
-                          <span className="text-xs text-ink-400">{formatRelative(r.createdAt)}</span>
-                        </span>
-                      </button>
-                    ))
-                  )}
+                  <p className="px-4 py-8 text-center text-sm text-ink-500">You’re all caught up 🎉</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setNotifOpen(false)
-                    navigate(ROUTES.reports)
-                  }}
-                  className="block w-full rounded-b-lg border-t border-ink-100 px-4 py-2.5 text-center text-sm font-medium text-brand-700 hover:bg-ink-50"
-                >
-                  View all reports
-                </button>
               </div>
             </>
           )}

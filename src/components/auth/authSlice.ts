@@ -7,6 +7,8 @@ export interface AdminProfile {
   email: string
   role: 'admin' | 'super_admin'
   avatarUrl?: string
+  phone?: string
+  gender?: string
 }
 
 interface AuthState {

@@ -32,6 +32,20 @@ export function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+/** Format ISO date string into readable date format. */
+export function formatDate(isoDate?: string) {
+  if (!isoDate) return ''
+  try {
+    return new Date(isoDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
+  } catch {
+    return isoDate
+  }
+}
+
 /** Initials from a full name, e.g. "Jane Doe" -> "JD". */
 export function getInitials(name: string) {
   return name

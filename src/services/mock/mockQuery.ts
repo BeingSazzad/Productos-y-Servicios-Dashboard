@@ -12,6 +12,7 @@ type RealBaseQuery = BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryErro
 export function endpoint<Arg, Res>(config: {
   mock: (arg: Arg) => Res
   real: (arg: Arg) => string | FetchArgs
+  transformReal?: (data: any) => Res
 }) {
   return async (
     arg: Arg,
@@ -34,6 +35,25 @@ export function endpoint<Arg, Res>(config: {
       }
     }
     const result = await baseQuery(config.real(arg), api, extraOptions)
+    if (result.error) {
+      const errData = result.error.data as { message?: string } | string | undefined
+      const errorMessage =
+        typeof errData === 'string'
+          ? errData
+          : errData?.message || 'Request failed. Please try again.'
+      return {
+        error: {
+          ...result.error,
+          data: errorMessage,
+        } as FetchBaseQueryError,
+      }
+    }
+    if (result.data !== undefined) {
+      const finalData = config.transformReal
+        ? config.transformReal(result.data)
+        : (result.data as Res)
+      return { data: finalData }
+    }
     return result as { data: Res } | { error: FetchBaseQueryError }
   }
 }

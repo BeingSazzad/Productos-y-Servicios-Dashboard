@@ -1,6 +1,9 @@
 /** Centralized route paths — the single source of truth for navigation. */
 export const ROUTES = {
   login: '/login',
+  forgotPassword: '/forgot-password',
+  verifyOtp: '/verify-otp',
+  resetPassword: '/reset-password',
 
   dashboard: '/',
 
@@ -11,9 +14,6 @@ export const ROUTES = {
   storeDetail: (id = ':id') => `/stores/${id}`,
 
   categories: '/categories',
-
-  // Moderation
-  reports: '/reports',
 
   // Billing
   subscriptions: '/subscriptions',
@@ -31,6 +31,5 @@ export const ROUTES = {
 
   // Administration
   admins: '/admins',
-  auditLog: '/audit-log',
   settings: '/settings',
 } as const

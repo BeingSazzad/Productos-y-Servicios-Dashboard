@@ -23,10 +23,10 @@ export default function UserDetailPage() {
 
   if (isLoading || !user) return <LoadingState />
 
-  const isSuspended = user.status === 'suspended'
+  const isSuspended = user.status === 'inactive' || user.status === 'suspended'
 
   const handleBan = async () => {
-    await updateStatus({ id: user.id, status: 'suspended', reason: reason.trim() || undefined })
+    await updateStatus({ id: user.id, status: 'inactive', reason: reason.trim() || undefined })
     setBanOpen(false)
     setReason('')
   }
@@ -52,7 +52,7 @@ export default function UserDetailPage() {
             </Button>
           ) : (
             <Button variant="danger" onClick={() => setBanOpen(true)}>
-              <Ban className="h-4 w-4" /> Ban user
+              <Ban className="h-4 w-4" /> Deactivate user
             </Button>
           )
         }

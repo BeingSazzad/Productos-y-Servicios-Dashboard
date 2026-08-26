@@ -5,6 +5,7 @@ import type { Option } from '@/types/common.types'
 export const ENTITY_STATUS_OPTIONS: Option[] = [
   { label: 'All statuses', value: 'all' },
   { label: 'Active', value: 'active' },
+  { label: 'Inactive', value: 'inactive' },
   { label: 'Pending', value: 'pending' },
   { label: 'Suspended', value: 'suspended' },
 ]
@@ -13,15 +14,15 @@ export const ENTITY_STATUS_OPTIONS: Option[] = [
 export const USER_STATUS_OPTIONS: Option[] = [
   { label: 'All users', value: 'all' },
   { label: 'Active', value: 'active' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Banned', value: 'suspended' },
+  { label: 'Inactive', value: 'inactive' },
+  // { label: 'Pending', value: 'pending' },
+  // { label: 'Banned', value: 'suspended' },
 ]
 
 export const SUBSCRIPTION_STATUS_OPTIONS: Option[] = [
   { label: 'All statuses', value: 'all' },
   { label: 'Active', value: 'active' },
   { label: 'Trialing', value: 'trialing' },
-  { label: 'Past due', value: 'past_due' },
   { label: 'Canceled', value: 'canceled' },
   { label: 'Expired', value: 'expired' },
 ]
@@ -42,7 +43,7 @@ export const REPORT_STATUS_OPTIONS: Option[] = [
 export const TRANSACTION_STATUS_OPTIONS: Option[] = [
   { label: 'All statuses', value: 'all' },
   { label: 'Paid', value: 'paid' },
-  { label: 'Pending', value: 'pending' },
+  // { label: 'Pending', value: 'pending' },
   { label: 'Failed', value: 'failed' },
   { label: 'Refunded', value: 'refunded' },
 ]
@@ -53,3 +54,14 @@ export const SUPPORT_STATUS_OPTIONS: Option[] = [
   { label: 'Pending', value: 'pending' },
   { label: 'Resolved', value: 'resolved' },
 ]
+
+export const YEAR_OPTIONS: Option[] = (() => {
+  const currentYear = new Date().getFullYear()
+  const years: Option[] = []
+  for (let i = 0; i < 5; i++) {
+    const y = String(currentYear - i)
+    years.push({ label: y, value: y })
+  }
+  return years
+})()
+

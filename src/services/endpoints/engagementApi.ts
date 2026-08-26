@@ -1,50 +1,91 @@
 import { api } from '@/services/api'
-import { endpoint } from '@/services/mock/mockQuery'
-import { paginate } from '@/services/mock/db'
-import { announcements, auditLogs } from '@/services/mock/seed'
 import type { ListParams, Paginated } from '@/types/api.types'
-import type { Announcement, AnnouncementAudience, AuditLog } from '@/types/models'
+import type { ID } from '@/types/common.types'
+import type { Announcement, AnnouncementAudience } from '@/types/models'
+
+export interface AnnouncementListParams extends ListParams {
+  audience?: AnnouncementAudience | 'all'
+}
 
 export interface CreateAnnouncementRequest {
   title: string
-  body: string
+  message: string
   audience: AnnouncementAudience
-  channel: Announcement['channel']
+}
+
+export function mapBackendAnnouncement(raw: any): Announcement {
+  const msg = raw?.message || raw?.body || ''
+  return {
+    id: String(raw?._id || raw?.id || ''),
+    _id: raw?._id,
+    title: raw?.title || '',
+    message: msg,
+    body: msg,
+    audience: raw?.audience || 'everyone',
+    channel: raw?.channel || 'push_notification',
+    status: raw?.status || 'sent',
+    recipients: raw?.recipients ?? 0,
+    createdBy: raw?.createdBy,
+    isDeleted: Boolean(raw?.isDeleted),
+    sentAt: raw?.sentAt || raw?.createdAt,
+    createdAt: raw?.createdAt || new Date().toISOString(),
+    updatedAt: raw?.updatedAt,
+  }
 }
 
 export const engagementApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getAnnouncements: builder.query<Announcement[], void>({
-      queryFn: endpoint({ mock: () => announcements, real: () => '/announcements' }),
+    getAnnouncements: builder.query<Paginated<Announcement>, AnnouncementListParams | void>({
+      query: (params) => {
+        const queryParams: Record<string, any> = {}
+        if (params?.page) queryParams.page = params.page
+        if (params?.pageSize) queryParams.limit = params.pageSize
+        if (params?.search && params.search.trim()) queryParams.search = params.search.trim()
+        if (params?.audience && params.audience !== 'all') queryParams.audience = params.audience
+        return {
+          url: '/announcements',
+          method: 'GET',
+          params: queryParams,
+        }
+      },
+      transformResponse: (response: any): Paginated<Announcement> => {
+        const rawList = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : []
+        const items = rawList.map(mapBackendAnnouncement)
+        const meta = response?.meta || {}
+        return {
+          items,
+          total: meta.total ?? items.length,
+          page: meta.page ?? 1,
+          pageSize: meta.limit ?? 10,
+        }
+      },
       providesTags: ['Announcement'],
     }),
 
     createAnnouncement: builder.mutation<Announcement, CreateAnnouncementRequest>({
-      queryFn: endpoint({
-        mock: (body) => {
-          const created: Announcement = {
-            id: `ann_${9000 + announcements.length}`,
-            ...body,
-            status: 'sent',
-            recipients: 1500,
-            sentAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          }
-          announcements.unshift(created)
-          return created
+      query: (body) => ({
+        url: '/announcements',
+        method: 'POST',
+        body: {
+          title: body.title,
+          message: body.message,
+          audience: body.audience,
         },
-        real: (body) => ({ url: '/announcements', method: 'POST', body }),
       }),
+      transformResponse: (response: any) => mapBackendAnnouncement(response?.data || response),
       invalidatesTags: ['Announcement'],
     }),
 
-    getAuditLogs: builder.query<Paginated<AuditLog>, ListParams>({
-      queryFn: endpoint({
-        mock: (params) =>
-          paginate(auditLogs, params, { searchable: ['actorName', 'action', 'targetName'] }),
-        real: (params) => ({ url: '/audit-logs', params }),
+    deleteAnnouncement: builder.mutation<{ id: ID }, ID>({
+      query: (id) => ({
+        url: `/announcements/${id}`,
+        method: 'DELETE',
       }),
-      providesTags: ['AuditLog'],
+      invalidatesTags: ['Announcement'],
     }),
   }),
 })
@@ -52,5 +93,5 @@ export const engagementApi = api.injectEndpoints({
 export const {
   useGetAnnouncementsQuery,
   useCreateAnnouncementMutation,
-  useGetAuditLogsQuery,
+  useDeleteAnnouncementMutation,
 } = engagementApi

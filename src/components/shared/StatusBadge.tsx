@@ -15,9 +15,11 @@ import type {
 
 const entityTone: Record<EntityStatus, BadgeTone> = {
   active: 'green',
+  inactive: 'gray',
   pending: 'amber',
   suspended: 'red',
   rejected: 'red',
+  under_review: 'blue',
 }
 
 const subscriptionTone: Record<SubscriptionStatus, BadgeTone> = {
@@ -40,8 +42,11 @@ export function StatusBadge({ status }: { status: EntityStatus }) {
   return <Badge tone={entityTone[status]}>{status}</Badge>
 }
 
-export function SubscriptionStatusBadge({ status }: { status: SubscriptionStatus }) {
-  return <Badge tone={subscriptionTone[status]}>{subscriptionLabel[status]}</Badge>
+export function SubscriptionStatusBadge({ status }: { status: SubscriptionStatus | string }) {
+  const s = status as SubscriptionStatus
+  const tone = subscriptionTone[s] || 'gray'
+  const label = subscriptionLabel[s] || status
+  return <Badge tone={tone}>{label}</Badge>
 }
 
 export function StoreTypeBadge({ type }: { type: StoreType }) {

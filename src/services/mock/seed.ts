@@ -330,7 +330,7 @@ export const faqs: Faq[] = [
 
 // The latest invoice reflects the subscription's billing state (a trialing
 // store hasn't been charged yet, a past-due one failed, etc.).
-const txStatusForSub = (status: SubscriptionStatus): TransactionStatus => {
+const txStatusForSub = (status: SubscriptionStatus | string): TransactionStatus => {
   switch (status) {
     case 'active':
       return 'paid'

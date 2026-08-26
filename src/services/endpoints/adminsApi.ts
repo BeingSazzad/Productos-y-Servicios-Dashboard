@@ -1,50 +1,92 @@
 import { api } from '@/services/api'
-import { endpoint } from '@/services/mock/mockQuery'
-import { admins } from '@/services/mock/seed'
 import type { ID } from '@/types/common.types'
-import type { Admin, AdminRole } from '@/types/models'
+import type { Admin } from '@/types/models'
 
 export interface CreateAdminRequest {
   name: string
   email: string
-  role: AdminRole
+  password?: string
+  role: string
+}
+
+export interface UpdateAdminRequest {
+  id: ID
+  name: string
+  email: string
+  password?: string
+  role: string
+}
+
+export function mapBackendAdminToAdmin(raw: any): Admin {
+  if (!raw) return raw
+  const id = String(raw._id || raw.id || '')
+  return {
+    id,
+    _id: raw._id || id,
+    name: raw.name || '',
+    email: raw.email || '',
+    role: raw.role || 'admin',
+    status: raw.status || 'active',
+    profileImage: raw.profileImage || '',
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    lastActiveAt: raw.updatedAt || raw.createdAt || new Date().toISOString(),
+  }
 }
 
 export const adminsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getAdmins: builder.query<Admin[], void>({
-      queryFn: endpoint({ mock: () => admins.map((a) => ({ ...a })), real: () => '/admins' }),
+      query: () => ({
+        url: '/users/admins',
+        method: 'GET',
+      }),
+      transformResponse: (response: any): Admin[] => {
+        const list = Array.isArray(response?.data?.data)
+          ? response.data.data
+          : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : []
+        return list.map(mapBackendAdminToAdmin)
+      },
       providesTags: ['Admin'],
     }),
 
     createAdmin: builder.mutation<Admin, CreateAdminRequest>({
-      queryFn: endpoint({
-        mock: (body) => {
-          const newAdmin: Admin = {
-            id: `adm_${admins.length + 1}`,
-            ...body,
-            status: 'active',
-            lastActiveAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          }
-          admins.unshift(newAdmin)
-          return newAdmin
+      query: (body) => ({
+        url: '/users/create-admin',
+        method: 'POST',
+        body: {
+          name: body.name,
+          email: body.email,
+          password: body.password,
+          role: body.role || 'admin',
         },
-        real: (body) => ({ url: '/admins', method: 'POST', body }),
       }),
+      transformResponse: (response: any) => mapBackendAdminToAdmin(response?.data || response),
       invalidatesTags: ['Admin'],
     }),
 
+
+
     updateAdminStatus: builder.mutation<Admin, { id: ID; status: Admin['status'] }>({
-      queryFn: endpoint({
-        mock: ({ id, status }) => {
-          const admin = admins.find((a) => a.id === id)
-          if (!admin) throw new Error('Admin not found')
-          admin.status = status
-          return admin
-        },
-        real: ({ id, status }) => ({ url: `/admins/${id}/status`, method: 'PATCH', body: { status } }),
+      query: ({ id, status }) => ({
+        url: `/users/admin/status/${id}`,
+        method: 'PATCH',
+        body: { status },
       }),
+      transformResponse: (response: any) => mapBackendAdminToAdmin(response?.data || response),
+      invalidatesTags: ['Admin'],
+    }),
+
+    deleteAdmin: builder.mutation<{ id: ID }, ID>({
+      query: (id) => ({
+        url: `/users/admins/${id}`,
+        method: 'DELETE',
+      }),
+      transformResponse: (_response: any, _meta: any, id: ID) => ({ id }),
       invalidatesTags: ['Admin'],
     }),
   }),
@@ -54,4 +96,5 @@ export const {
   useGetAdminsQuery,
   useCreateAdminMutation,
   useUpdateAdminStatusMutation,
+  useDeleteAdminMutation,
 } = adminsApi

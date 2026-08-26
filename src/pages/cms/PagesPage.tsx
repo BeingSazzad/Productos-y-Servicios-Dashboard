@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Select'
 import { RichTextEditor } from '@/components/ui/RichTextEditor'
 import { Modal } from '@/components/ui/Modal'
 import { ContentStatusBadge } from '@/components/shared/StatusBadge'
+import { toast } from '@/components/ui/Toast'
 import {
   useGetContentPagesQuery,
   useUpdateContentPageMutation,
@@ -27,9 +28,22 @@ export default function PagesPage() {
   const [editing, setEditing] = useState<ContentPage | null>(null)
 
   const columns: Column<ContentPage>[] = [
-    { key: 'title', header: 'Page', render: (p) => <span className="font-medium text-ink-900">{p.title}</span> },
-    { key: 'status', header: 'Status', render: (p) => <ContentStatusBadge status={p.status} /> },
-    { key: 'updated', header: 'Last updated', render: (p) => formatDate(p.updatedAt) },
+    {
+      key: 'title',
+      header: 'Page',
+      render: (p) => <span className="font-medium text-ink-900">{p.title}</span>,
+    },
+
+    {
+      key: 'status',
+      header: 'Status',
+      render: (p) => <ContentStatusBadge status={p.status} />,
+    },
+    {
+      key: 'updated',
+      header: 'Last updated',
+      render: (p) => formatDate(p.updatedAt),
+    },
     {
       key: 'actions',
       header: 'Actions',
@@ -46,7 +60,7 @@ export default function PagesPage() {
     <div>
       <PageHeader
         title="Content Pages"
-        description="Legal and informational pages (Terms, Privacy, About…) surfaced in the app."
+        description="Legal and informational pages (Terms, Privacy, About, Guidelines…) surfaced in the app."
       />
 
       <Card>
@@ -66,20 +80,32 @@ export default function PagesPage() {
 
 function EditPageModal({ page, onClose }: { page: ContentPage | null; onClose: () => void }) {
   const [updatePage, { isLoading: saving }] = useUpdateContentPageMutation()
-  const [form, setForm] = useState({ title: '', status: 'draft' as ContentStatus, content: '' })
+  const [form, setForm] = useState({ title: '', status: 'published' as ContentStatus, content: '' })
 
   // Re-seed the form whenever a different page is opened.
   useEffect(() => {
     if (page) {
-      setForm({ title: page.title, status: page.status, content: page.content })
+      setForm({ title: page.title, status: page.status || 'published', content: page.content })
     }
   }, [page])
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault()
     if (!page) return
-    await updatePage({ id: page.id, ...form }).unwrap()
-    onClose()
+    const ruleType = page.type || page.id
+    try {
+      await updatePage({
+        id: page.id,
+        type: ruleType,
+        title: form.title,
+        content: form.content,
+        status: form.status,
+      }).unwrap()
+      toast.success(`Page "${page.title}" updated successfully!`)
+      onClose()
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || `Failed to update page "${page.title}".`)
+    }
   }
 
   return (
@@ -107,6 +133,7 @@ function EditPageModal({ page, onClose }: { page: ContentPage | null; onClose: (
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             required
+            disabled
           />
           <Select
             label="Status"

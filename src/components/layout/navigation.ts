@@ -9,12 +9,10 @@ import {
   Megaphone,
   LifeBuoy,
   Settings,
-  ShieldAlert,
   Image,
   FileText,
   HelpCircle,
   UserCog,
-  ScrollText,
   type LucideIcon,
 } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
@@ -25,8 +23,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Exact match only (used for the dashboard index route). */
   end?: boolean
-  /** Optional badge key resolved at render time (e.g. open reports count). */
-  badgeKey?: 'reports' | 'support'
+  /** Optional badge key resolved at render time. */
+  badgeKey?: 'support'
 }
 
 export interface NavSection {
@@ -47,10 +45,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Stores', to: ROUTES.stores, icon: Store },
       { label: 'Categories', to: ROUTES.categories, icon: Tags },
     ],
-  },
-  {
-    title: 'Moderation',
-    items: [{ label: 'Reports', to: ROUTES.reports, icon: ShieldAlert, badgeKey: 'reports' }],
   },
   {
     title: 'Billing',
@@ -79,7 +73,6 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Administration',
     items: [
       { label: 'Admins', to: ROUTES.admins, icon: UserCog },
-      { label: 'Audit Log', to: ROUTES.auditLog, icon: ScrollText },
       { label: 'Settings', to: ROUTES.settings, icon: Settings },
     ],
   },

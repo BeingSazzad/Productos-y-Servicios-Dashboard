@@ -32,8 +32,21 @@ const TYPE_OPTIONS: Option<StoreType>[] = [
   { label: 'Service', value: 'service' },
 ]
 
+import { useSearchParams } from 'react-router-dom'
+
 export default function CategoriesPage() {
-  const [type, setType] = useState<StoreType>('product')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const typeParam = searchParams.get('type') || searchParams.get('tab') || 'product'
+  const type = (['product', 'service'].includes(typeParam) ? typeParam : 'product') as StoreType
+
+  const handleTypeChange = (newType: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('type', newType)
+      return next
+    })
+  }
+
   const { data: categories, isLoading } = useGetCategoriesQuery()
   const [toggleCategory] = useToggleCategoryMutation()
   const [deleteCategory, { isLoading: deleting }] = useDeleteCategoryMutation()
@@ -45,9 +58,24 @@ export default function CategoriesPage() {
   const rows = (categories ?? []).filter((c) => c.type === type)
 
   const columns: Column<Category>[] = [
-    { key: 'name', header: 'Category', render: (c) => <span className="font-medium text-ink-900">{c.name}</span> },
+    {
+      key: 'name',
+      header: 'Category',
+      render: (c) => (
+        <div>
+          <p className="font-medium text-ink-900">{c.name}</p>
+          {c.description && <p className="text-xs text-ink-500 line-clamp-1">{c.description}</p>}
+        </div>
+      ),
+    },
     { key: 'type', header: 'Type', render: (c) => <StoreTypeBadge type={c.type} /> },
-    { key: 'count', header: 'Listings', align: 'right', render: (c) => c.listingCount },
+    {
+      key: 'count',
+      header: 'Listings',
+      align: 'right',
+      render: (c: any) =>
+        c.listingCount ?? c.listingsCount ?? c.listings ?? c.totalListings ?? c.count ?? 0,
+    },
     {
       key: 'active',
       header: 'Active',
@@ -92,7 +120,7 @@ export default function CategoriesPage() {
       <Card>
         <CardHeader
           title="Manage categories"
-          action={<Tabs value={type} onChange={(v) => setType(v as StoreType)} options={TYPE_TABS} />}
+          action={<Tabs value={type} onChange={handleTypeChange} options={TYPE_TABS} />}
         />
         <Table
           columns={columns}
@@ -144,14 +172,19 @@ function CategoryFormModal({
 }) {
   const [createCategory, { isLoading: creating }] = useCreateCategoryMutation()
   const [updateCategory, { isLoading: updating }] = useUpdateCategoryMutation()
-  const [form, setForm] = useState<CategoryInput>({ name: '', type: defaultType, isActive: true })
+  const [form, setForm] = useState<CategoryInput>({ name: '', description: '', type: defaultType, status: 'active' })
 
   useEffect(() => {
     if (!open) return
     setForm(
       category
-        ? { name: category.name, type: category.type, isActive: category.isActive }
-        : { name: '', type: defaultType, isActive: true },
+        ? {
+            name: category.name,
+            description: category.description || '',
+            type: category.type,
+            status: category.status || (category.isActive ? 'active' : 'inactive'),
+          }
+        : { name: '', description: '', type: defaultType, status: 'active' },
     )
   }, [open, category, defaultType])
 
@@ -183,7 +216,14 @@ function CategoryFormModal({
           label="Name"
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          placeholder="Category name (e.g. Electronics)"
           required
+        />
+        <Input
+          label="Description"
+          value={form.description ?? ''}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+          placeholder="Short category description..."
         />
         <Select
           label="Store type"
@@ -192,7 +232,11 @@ function CategoryFormModal({
           onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as StoreType }))}
         />
         <label className="flex items-center gap-2 text-sm text-ink-700">
-          <Switch checked={form.isActive} onChange={(v) => setForm((f) => ({ ...f, isActive: v }))} label="Active" />
+          <Switch
+            checked={form.status === 'active'}
+            onChange={(active) => setForm((f) => ({ ...f, status: active ? 'active' : 'inactive' }))}
+            label="Active"
+          />
           Active
         </label>
       </form>

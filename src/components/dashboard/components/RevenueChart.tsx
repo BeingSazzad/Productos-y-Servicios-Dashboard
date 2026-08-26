@@ -7,13 +7,18 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { TimeSeriesPoint } from '@/types/models'
+import type { RevenueChartPoint, TimeSeriesPoint } from '@/types/models'
 import { formatCurrency } from '@/lib/utils'
 
-export function RevenueChart({ data }: { data: TimeSeriesPoint[] }) {
+export function RevenueChart({ data }: { data: (RevenueChartPoint | TimeSeriesPoint)[] }) {
+  const chartData = data.map((item) => ({
+    month: 'month' in item ? item.month : item.label,
+    revenue: item.revenue,
+  }))
+
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
         <defs>
           <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#039855" stopOpacity={0.25} />
@@ -21,12 +26,12 @@ export function RevenueChart({ data }: { data: TimeSeriesPoint[] }) {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#eaecf0" vertical={false} />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#667085', fontSize: 12 }} />
+        <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: '#667085', fontSize: 12 }} />
         <YAxis
           tickLine={false}
           axisLine={false}
           tick={{ fill: '#667085', fontSize: 12 }}
-          tickFormatter={(v) => `$${v / 1000}k`}
+          tickFormatter={(v) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`)}
         />
         <Tooltip
           formatter={(v: number) => [formatCurrency(v), 'Revenue']}

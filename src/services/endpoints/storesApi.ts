@@ -1,10 +1,7 @@
 import { api } from '@/services/api'
-import { endpoint } from '@/services/mock/mockQuery'
-import { findById, paginate } from '@/services/mock/db'
-import { products, services, stores } from '@/services/mock/seed'
 import type { ListParams, Paginated } from '@/types/api.types'
 import type { EntityStatus, ID } from '@/types/common.types'
-import type { Store, StoreType } from '@/types/models'
+import type { Store, StoreDetailData, StoreType } from '@/types/models'
 
 interface StoreListParams extends ListParams {
   type?: StoreType | 'all'
@@ -12,44 +9,82 @@ interface StoreListParams extends ListParams {
 
 export const storesApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getStores: builder.query<Paginated<Store>, StoreListParams>({
-      queryFn: endpoint({
-        mock: (params) => {
-          const typed =
-            params.type && params.type !== 'all'
-              ? stores.filter((s) => s.type === params.type)
-              : stores
-          return paginate(typed, params, {
-            searchable: ['name', 'ownerName', 'category'],
-            filters: { status: (s, v) => s.status === v },
-          })
-        },
-        real: (params) => ({ url: '/stores', params }),
-      }),
+    getStores: builder.query<Paginated<Store>, StoreListParams | void>({
+      query: (params) => {
+        const queryParams: Record<string, any> = {}
+        if (params?.page) queryParams.page = params.page
+        if (params?.pageSize) queryParams.limit = params.pageSize
+        if (params?.search && params.search.trim()) queryParams.search = params.search.trim()
+        if (params?.status && params.status !== 'all') queryParams.status = params.status
+        if (params?.type && params.type !== 'all') {
+          queryParams.storeType =
+            params.type === 'product'
+              ? 'product_store'
+              : params.type === 'service'
+              ? 'service_store'
+              : params.type
+        }
+        return {
+          url: '/stores',
+          method: 'GET',
+          params: queryParams,
+        }
+      },
+      transformResponse: (response: any): Paginated<Store> => {
+        const items = Array.isArray(response?.data) ? response.data : []
+        const meta = response?.meta || {}
+        return {
+          items,
+          total: meta.total ?? items.length,
+          page: meta.page ?? 1,
+          pageSize: meta.limit ?? 10,
+        }
+      },
       providesTags: ['Store'],
     }),
 
-    getStore: builder.query<Store, ID>({
-      queryFn: endpoint({ mock: (id) => findById(stores, id), real: (id) => `/stores/${id}` }),
+    getStore: builder.query<StoreDetailData, ID>({
+      query: (id) => ({
+        url: `/stores/${id}`,
+        method: 'GET',
+      }),
+      transformResponse: (response: any): StoreDetailData => {
+        const data = response?.data || {}
+        return {
+          store: data.store || data,
+          products: Array.isArray(data.products) ? data.products : [],
+          services: Array.isArray(data.services) ? data.services : [],
+        }
+      },
       providesTags: (_r, _e, id) => [{ type: 'Store', id }],
     }),
 
-    updateStoreStatus: builder.mutation<Store, { id: ID; status: EntityStatus }>({
-      queryFn: endpoint({
-        mock: ({ id, status }) => {
-          const store = findById(stores, id)
-          store.status = status
-          // Cascade to the store's listings so they never contradict the store
-          // (approving a store publishes its pending listings; suspending hides them).
-          products.filter((p) => p.storeId === id).forEach((p) => (p.status = status))
-          services.filter((s) => s.storeId === id).forEach((s) => (s.status = status))
-          return store
-        },
-        real: ({ id, status }) => ({ url: `/stores/${id}/status`, method: 'PATCH', body: { status } }),
+    updateStoreStatus: builder.mutation<Store, { id: ID; status: EntityStatus | string }>({
+      query: ({ id, status }) => ({
+        url: `/stores/status/${id}`,
+        method: 'PATCH',
+        body: { status },
       }),
+      transformResponse: (response: any) => response?.data || response,
       invalidatesTags: ['Store', 'Product', 'Service'],
+    }),
+
+    verifyStore: builder.mutation<Store, { id: ID; isVerified: boolean }>({
+      query: ({ id, isVerified }) => ({
+        url: `/stores/verify/${id}`,
+        method: 'PATCH',
+        body: { isVerified },
+      }),
+      transformResponse: (response: any) => response?.data || response,
+      invalidatesTags: ['Store'],
     }),
   }),
 })
 
-export const { useGetStoresQuery, useGetStoreQuery, useUpdateStoreStatusMutation } = storesApi
+export const {
+  useGetStoresQuery,
+  useGetStoreQuery,
+  useUpdateStoreStatusMutation,
+  useVerifyStoreMutation,
+} = storesApi
+

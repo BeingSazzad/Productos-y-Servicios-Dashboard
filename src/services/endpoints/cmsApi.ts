@@ -1,42 +1,141 @@
 import { api } from '@/services/api'
-import { endpoint } from '@/services/mock/mockQuery'
-import { banners, contentPages, faqs } from '@/services/mock/seed'
-import { genId } from '@/lib/utils'
 import type { ID } from '@/types/common.types'
-import type { Banner, ContentPage, ContentStatus, Faq } from '@/types/models'
+import type { Banner, BannerPlacement, ContentPage, ContentStatus, Faq } from '@/types/models'
 
 export interface UpdateContentPageRequest {
-  id: ID
-  title: string
+  id?: ID
+  type: string
+  title?: string
   content: string
-  status: ContentStatus
+  status?: ContentStatus
 }
 
-export type BannerInput = Omit<Banner, 'id'>
-export type FaqInput = Omit<Faq, 'id'>
+export interface BannerInput {
+  name?: string
+  title?: string
+  description?: string
+  imageFile?: File | null
+  imageUrl?: string
+  placement?: BannerPlacement
+  isActive?: boolean
+  startsAt?: string
+  endsAt?: string
+}
+
+export function mapBackendBannerToBanner(raw: any): Banner {
+  if (!raw) return raw
+  const id = String(raw._id || raw.id || '')
+  const name = raw.name || raw.title || ''
+  const description = raw.description || ''
+  const imagePath = raw.image || raw.imageUrl || ''
+  const rawStatus = raw.status
+  const isActive =
+    typeof rawStatus === 'boolean'
+      ? rawStatus
+      : typeof rawStatus === 'string'
+      ? rawStatus.toLowerCase() === 'active'
+      : Boolean(raw.isActive)
+
+  const statusStr = typeof rawStatus === 'string' ? rawStatus : (isActive ? 'active' : 'inactive')
+
+  return {
+    id,
+    _id: raw._id || id,
+    title: name,
+    name,
+    description,
+    imageUrl: imagePath,
+    image: imagePath,
+    placement: raw.placement || 'home_top',
+    isActive,
+    status: statusStr,
+    isDeleted: raw.isDeleted,
+    startsAt: raw.startsAt || raw.createdAt || new Date().toISOString(),
+    endsAt: raw.endsAt || raw.updatedAt || new Date().toISOString(),
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+  }
+}
+
+export function mapBackendFaqToFaq(raw: any): Faq {
+  if (!raw) return raw
+  const id = String(raw._id || raw.id || '')
+  return {
+    id,
+    _id: raw._id || id,
+    question: raw.question || '',
+    answer: raw.answer || '',
+    category: raw.category || 'General',
+    order: typeof raw.order === 'number' ? raw.order : 0,
+    isPublished: raw.isPublished !== false,
+    isDeleted: Boolean(raw.isDeleted),
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+  }
+}
+
+const RULE_TITLE_MAP: Record<string, string> = {
+  about: 'About Us',
+  terms: 'Terms & Conditions',
+  privacy: 'Privacy Policy',
+  guidelines: 'Community Guidelines',
+}
+
+export function mapBackendRuleToContentPage(raw: any, defaultType?: string): ContentPage {
+  const rawObj = Array.isArray(raw?.data) ? raw.data[0] : raw?.data || raw || {}
+  const type = rawObj.type || defaultType || 'about'
+  const id = String(rawObj._id || rawObj.id || type)
+
+  return {
+    id,
+    _id: rawObj._id || id,
+    type,
+    title: RULE_TITLE_MAP[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Page'),
+    content: rawObj.content || '',
+    status: 'published',
+    updatedAt: rawObj.updatedAt || rawObj.createdAt || new Date().toISOString(),
+  }
+}
+
+export type FaqInput = {
+  question: string
+  answer: string
+  category?: string
+  order?: number
+  isPublished?: boolean
+}
 
 export const cmsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     /* Banners */
     getBanners: builder.query<Banner[], void>({
-      queryFn: endpoint({ mock: () => banners.map((b) => ({ ...b })), real: () => '/cms/banners' }),
+      query: () => ({ url: '/banners/all', method: 'GET' }),
+      transformResponse: (response: any): Banner[] => {
+        const list = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : []
+        return list.map(mapBackendBannerToBanner)
+      },
       providesTags: ['Banner'],
     }),
+
     toggleBanner: builder.mutation<Banner, { id: ID; isActive: boolean }>({
-      queryFn: endpoint({
-        mock: ({ id, isActive }) => {
-          const banner = banners.find((b) => b.id === id)
-          if (!banner) throw new Error('Banner not found')
-          banner.isActive = isActive
-          return banner
-        },
-        real: ({ id, isActive }) => ({ url: `/cms/banners/${id}`, method: 'PATCH', body: { isActive } }),
+      query: ({ id, isActive }) => ({
+        url: `/banners/status/${id}`,
+        method: 'PATCH',
+        body: { status: isActive ? 'active' : 'inactive' },
       }),
+      transformResponse: (response: any) => mapBackendBannerToBanner(response?.data || response),
       async onQueryStarted({ id, isActive }, { dispatch, queryFulfilled }) {
         const patch = dispatch(
           cmsApi.util.updateQueryData('getBanners', undefined, (draft) => {
-            const banner = draft.find((b) => b.id === id)
-            if (banner) banner.isActive = isActive
+            const banner = draft.find((b) => b.id === id || b._id === id)
+            if (banner) {
+              banner.isActive = isActive
+              banner.status = isActive ? 'active' : 'inactive'
+            }
           }),
         )
         try {
@@ -45,80 +144,125 @@ export const cmsApi = api.injectEndpoints({
           patch.undo()
         }
       },
-    }),
-    createBanner: builder.mutation<Banner, BannerInput>({
-      queryFn: endpoint({
-        mock: (body) => {
-          const created: Banner = { id: genId('bnr'), ...body }
-          banners.unshift(created)
-          return created
-        },
-        real: (body) => ({ url: '/cms/banners', method: 'POST', body }),
-      }),
-      invalidatesTags: ['Banner'],
-    }),
-    updateBanner: builder.mutation<Banner, { id: ID } & BannerInput>({
-      queryFn: endpoint({
-        mock: ({ id, ...changes }) => {
-          const banner = banners.find((b) => b.id === id)
-          if (!banner) throw new Error('Banner not found')
-          Object.assign(banner, changes)
-          return banner
-        },
-        real: ({ id, ...body }) => ({ url: `/cms/banners/${id}`, method: 'PUT', body }),
-      }),
-      invalidatesTags: ['Banner'],
-    }),
-    deleteBanner: builder.mutation<{ id: ID }, ID>({
-      queryFn: endpoint({
-        mock: (id) => {
-          const idx = banners.findIndex((b) => b.id === id)
-          if (idx === -1) throw new Error('Banner not found')
-          banners.splice(idx, 1)
-          return { id }
-        },
-        real: (id) => ({ url: `/cms/banners/${id}`, method: 'DELETE' }),
-      }),
       invalidatesTags: ['Banner'],
     }),
 
-    /* Content pages */
+    createBanner: builder.mutation<Banner, BannerInput>({
+      query: (body) => {
+        const formData = new FormData()
+        formData.append(
+          'data',
+          JSON.stringify({
+            name: body.name || body.title || '',
+            description: body.description || '',
+          }),
+        )
+        if (body.imageFile) {
+          formData.append('image', body.imageFile)
+        }
+        return {
+          url: '/banners',
+          method: 'POST',
+          body: formData,
+        }
+      },
+      transformResponse: (response: any) => mapBackendBannerToBanner(response?.data || response),
+      invalidatesTags: ['Banner'],
+    }),
+
+    updateBanner: builder.mutation<Banner, { id: ID } & Partial<BannerInput>>({
+      query: ({ id, ...body }) => {
+        const formData = new FormData()
+        formData.append(
+          'data',
+          JSON.stringify({
+            name: body.name || body.title || '',
+            description: body.description || '',
+          }),
+        )
+        if (body.imageFile) {
+          formData.append('image', body.imageFile)
+        }
+        return {
+          url: `/banners/${id}`,
+          method: 'PATCH',
+          body: formData,
+        }
+      },
+      transformResponse: (response: any) => mapBackendBannerToBanner(response?.data || response),
+      invalidatesTags: ['Banner'],
+    }),
+
+    deleteBanner: builder.mutation<{ id: ID }, ID>({
+      query: (id) => ({ url: `/banners/${id}`, method: 'DELETE' }),
+      transformResponse: (_response: any, _meta: any, id: ID) => ({ id }),
+      invalidatesTags: ['Banner'],
+    }),
+
+    /* Content pages / Rules */
     getContentPages: builder.query<ContentPage[], void>({
-      queryFn: endpoint({ mock: () => contentPages.map((p) => ({ ...p })), real: () => '/cms/pages' }),
+      async queryFn(_arg, _queryApi, _extraOptions, fetchWithBaseQuery) {
+        const types = ['about', 'terms', 'privacy', 'guidelines']
+        try {
+          const results = await Promise.all(
+            types.map(async (type) => {
+              const res = await fetchWithBaseQuery({ url: `/rules/${type}`, method: 'GET' })
+              if (res.error) {
+                return mapBackendRuleToContentPage(null, type)
+              }
+              return mapBackendRuleToContentPage(res.data, type)
+            }),
+          )
+          return { data: results }
+        } catch {
+          return { data: types.map((t) => mapBackendRuleToContentPage(null, t)) }
+        }
+      },
       providesTags: ['ContentPage'],
     }),
+
+    getRuleByType: builder.query<ContentPage, string>({
+      query: (type) => ({ url: `/rules/${type}`, method: 'GET' }),
+      transformResponse: (response: any, _meta: any, type: string): ContentPage =>
+        mapBackendRuleToContentPage(response, type),
+      providesTags: (_res, _err, type) => [{ type: 'ContentPage', id: type }],
+    }),
+
     updateContentPage: builder.mutation<ContentPage, UpdateContentPageRequest>({
-      queryFn: endpoint({
-        mock: ({ id, ...changes }) => {
-          const page = contentPages.find((p) => p.id === id)
-          if (!page) throw new Error('Page not found')
-          Object.assign(page, changes, { updatedAt: new Date().toISOString() })
-          return { ...page }
+      query: (body) => ({
+        url: '/rules',
+        method: 'POST',
+        body: {
+          content: body.content,
+          type: body.type,
         },
-        real: ({ id, ...body }) => ({ url: `/cms/pages/${id}`, method: 'PATCH', body }),
       }),
+      transformResponse: (response: any, _meta: any, arg: UpdateContentPageRequest) =>
+        mapBackendRuleToContentPage(response, arg.type),
       invalidatesTags: ['ContentPage'],
     }),
 
     /* FAQs */
     getFaqs: builder.query<Faq[], void>({
-      queryFn: endpoint({ mock: () => faqs.map((f) => ({ ...f })), real: () => '/cms/faqs' }),
+      query: () => ({ url: '/faqs', method: 'GET' }),
+      transformResponse: (response: any): Faq[] => {
+        const list = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : []
+        return list.map(mapBackendFaqToFaq)
+      },
       providesTags: ['Faq'],
     }),
+
     toggleFaq: builder.mutation<Faq, { id: ID; isPublished: boolean }>({
-      queryFn: endpoint({
-        mock: ({ id, isPublished }) => {
-          const faq = faqs.find((f) => f.id === id)
-          if (!faq) throw new Error('FAQ not found')
-          faq.isPublished = isPublished
-          return faq
-        },
-        real: ({ id, isPublished }) => ({ url: `/cms/faqs/${id}`, method: 'PATCH', body: { isPublished } }),
-      }),
+      query: ({ id, isPublished }) => ({ url: `/faqs/${id}`, method: 'PATCH', body: { isPublished } }),
+      transformResponse: (response: any) => mapBackendFaqToFaq(response?.data || response),
       async onQueryStarted({ id, isPublished }, { dispatch, queryFulfilled }) {
         const patch = dispatch(
           cmsApi.util.updateQueryData('getFaqs', undefined, (draft) => {
-            const faq = draft.find((f) => f.id === id)
+            const faq = draft.find((f) => f.id === id || f._id === id)
             if (faq) faq.isPublished = isPublished
           }),
         )
@@ -128,40 +272,38 @@ export const cmsApi = api.injectEndpoints({
           patch.undo()
         }
       },
+      invalidatesTags: ['Faq'],
     }),
+
     createFaq: builder.mutation<Faq, FaqInput>({
-      queryFn: endpoint({
-        mock: (body) => {
-          const created: Faq = { id: genId('faq'), ...body }
-          faqs.push(created)
-          return created
+      query: (body) => ({
+        url: '/faqs',
+        method: 'POST',
+        body: {
+          question: body.question,
+          answer: body.answer,
         },
-        real: (body) => ({ url: '/cms/faqs', method: 'POST', body }),
       }),
+      transformResponse: (response: any) => mapBackendFaqToFaq(response?.data || response),
       invalidatesTags: ['Faq'],
     }),
-    updateFaq: builder.mutation<Faq, { id: ID } & FaqInput>({
-      queryFn: endpoint({
-        mock: ({ id, ...changes }) => {
-          const faq = faqs.find((f) => f.id === id)
-          if (!faq) throw new Error('FAQ not found')
-          Object.assign(faq, changes)
-          return faq
+
+    updateFaq: builder.mutation<Faq, { id: ID } & Partial<FaqInput>>({
+      query: ({ id, ...body }) => ({
+        url: `/faqs/${id}`,
+        method: 'PATCH',
+        body: {
+          question: body.question,
+          answer: body.answer,
         },
-        real: ({ id, ...body }) => ({ url: `/cms/faqs/${id}`, method: 'PUT', body }),
       }),
+      transformResponse: (response: any) => mapBackendFaqToFaq(response?.data || response),
       invalidatesTags: ['Faq'],
     }),
+
     deleteFaq: builder.mutation<{ id: ID }, ID>({
-      queryFn: endpoint({
-        mock: (id) => {
-          const idx = faqs.findIndex((f) => f.id === id)
-          if (idx === -1) throw new Error('FAQ not found')
-          faqs.splice(idx, 1)
-          return { id }
-        },
-        real: (id) => ({ url: `/cms/faqs/${id}`, method: 'DELETE' }),
-      }),
+      query: (id) => ({ url: `/faqs/${id}`, method: 'DELETE' }),
+      transformResponse: (_response: any, _meta: any, id: ID) => ({ id }),
       invalidatesTags: ['Faq'],
     }),
   }),
@@ -174,6 +316,7 @@ export const {
   useUpdateBannerMutation,
   useDeleteBannerMutation,
   useGetContentPagesQuery,
+  useGetRuleByTypeQuery,
   useUpdateContentPageMutation,
   useGetFaqsQuery,
   useToggleFaqMutation,

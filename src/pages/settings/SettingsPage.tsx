@@ -1,30 +1,58 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { Camera, Check, Lock, ShieldCheck, SlidersHorizontal, Trash2, UserCog } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { Camera, Check, Lock, ShieldCheck, Trash2, UserCog, Phone } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { Switch } from '@/components/ui/Switch'
 import { Avatar } from '@/components/shared/Avatar'
+import { toast } from '@/components/ui/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppDispatch } from '@/store/hooks'
-import { updateProfile } from '@/components/auth/authSlice'
-import { useChangePasswordMutation } from '@/services/endpoints/authApi'
+import { updateProfile as updateProfileRedux } from '@/components/auth/authSlice'
+import {
+  useGetProfileQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
+} from '@/services/endpoints/authApi'
+import type { Option } from '@/types/common.types'
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024 // 2 MB
+
+const GENDER_OPTIONS: Option[] = [
+  { label: 'Select gender', value: '' },
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Other', value: 'other' },
+]
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const dispatch = useAppDispatch()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [name, setName] = useState(user?.name ?? '')
-  const [avatar, setAvatar] = useState<string | undefined>(user?.avatarUrl)
+  const { data: profile, isLoading: loadingProfile } = useGetProfileQuery()
+  const [updateProfileApi, { isLoading: savingProfile }] = useUpdateProfileMutation()
+
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [gender, setGender] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
-  const [autoApprove, setAutoApprove] = useState(false)
-  const [requireSubscription, setRequireSubscription] = useState(true)
+  useEffect(() => {
+    const activeData = profile || user
+    if (activeData) {
+      setName(activeData.name || '')
+      setPhone(activeData.phone || '')
+      setGender(activeData.gender || '')
+      if (!selectedFile) {
+        setAvatarPreview(activeData.avatarUrl)
+      }
+    }
+  }, [profile, user, selectedFile])
 
   const handlePhoto = (e: ChangeEvent<HTMLInputElement>) => {
     setPhotoError(null)
@@ -33,16 +61,40 @@ export default function SettingsPage() {
     if (!file) return
     if (!file.type.startsWith('image/')) return setPhotoError('Please choose an image file.')
     if (file.size > MAX_AVATAR_BYTES) return setPhotoError('Image must be under 2 MB.')
-    const reader = new FileReader()
-    reader.onload = () => setAvatar(reader.result as string)
-    reader.readAsDataURL(file)
+
+    const objectUrl = URL.createObjectURL(file)
+    setSelectedFile(file)
+    setAvatarPreview(objectUrl)
   }
 
-  const handleSave = (e: FormEvent) => {
+  const handleRemovePhoto = () => {
+    setSelectedFile(null)
+    setAvatarPreview(undefined)
+  }
+
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault()
-    dispatch(updateProfile({ name, avatarUrl: avatar ?? null }))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    try {
+      const res = await updateProfileApi({
+        name,
+        phone: phone.trim() || undefined,
+        gender: gender || undefined,
+        profileImage: selectedFile || undefined,
+      }).unwrap()
+
+      setSelectedFile(null)
+      dispatch(
+        updateProfileRedux({
+          name: res.data.name,
+          avatarUrl: res.data.avatarUrl ?? null,
+        }),
+      )
+      toast.success('Profile updated successfully!')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || 'Failed to update profile.')
+    }
   }
 
   return (
@@ -51,7 +103,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Profile */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-3">
           <CardHeader
             title={
               <span className="flex items-center gap-2">
@@ -65,7 +117,7 @@ export default function SettingsPage() {
               {/* Avatar */}
               <div className="flex flex-col items-center gap-4 rounded-xl bg-ink-50 p-5 sm:flex-row sm:items-center">
                 <div className="group relative h-20 w-20 shrink-0">
-                  <Avatar name={name || 'Admin'} src={avatar} size="lg" className="h-20 w-20 text-2xl" />
+                  <Avatar name={name || 'Admin'} src={avatarPreview} size="lg" className="h-20 w-20 text-2xl" />
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
@@ -83,13 +135,13 @@ export default function SettingsPage() {
                     <Button type="button" size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
                       <Camera className="h-3.5 w-3.5" /> Change
                     </Button>
-                    {avatar && (
+                    {avatarPreview && (
                       <Button
                         type="button"
                         size="sm"
                         variant="ghost"
                         className="text-red-600 hover:bg-red-50"
-                        onClick={() => setAvatar(undefined)}
+                        onClick={handleRemovePhoto}
                       >
                         <Trash2 className="h-3.5 w-3.5" /> Remove
                       </Button>
@@ -101,19 +153,43 @@ export default function SettingsPage() {
 
               {/* Fields */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input
+                  label="Full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter full name"
+                  disabled={loadingProfile}
+                  required
+                />
                 <Input
                   label="Email"
                   type="email"
-                  value={user?.email ?? ''}
+                  value={profile?.email || user?.email || ''}
                   disabled
                   leftIcon={<Lock className="h-4 w-4" />}
-                  hint="Super-admin email can’t be changed."
+                  hint="Admin email can’t be changed."
+                />
+                <Input
+                  label="Phone Number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1234567890"
+                  leftIcon={<Phone className="h-4 w-4" />}
+                  disabled={loadingProfile}
+                />
+                <Select
+                  label="Gender"
+                  options={GENDER_OPTIONS}
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  disabled={loadingProfile}
                 />
               </div>
 
               <div className="flex items-center gap-3 border-t border-ink-100 pt-4">
-                <Button type="submit">Save changes</Button>
+                <Button type="submit" loading={savingProfile}>
+                  Save changes
+                </Button>
                 {saved && (
                   <span className="inline-flex items-center gap-1 text-sm text-brand-600">
                     <Check className="h-4 w-4" /> Saved
@@ -121,33 +197,6 @@ export default function SettingsPage() {
                 )}
               </div>
             </form>
-          </CardBody>
-        </Card>
-
-        {/* Marketplace rules */}
-        <Card>
-          <CardHeader
-            title={
-              <span className="flex items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4 text-brand-600" /> Marketplace rules
-              </span>
-            }
-            description="Control how stores are onboarded."
-          />
-          <CardBody className="space-y-5">
-            <SettingToggle
-              title="Auto-approve new stores"
-              description="Skip manual review when a store is created."
-              checked={autoApprove}
-              onChange={setAutoApprove}
-            />
-            <div className="border-t border-ink-100" />
-            <SettingToggle
-              title="Require subscription to open a store"
-              description="Sellers must hold an active plan before listing."
-              checked={requireSubscription}
-              onChange={setRequireSubscription}
-            />
           </CardBody>
         </Card>
 
@@ -176,24 +225,24 @@ function ChangePasswordForm() {
   const [newPassword, setNewPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    setSuccess(false)
 
     if (newPassword.length < 6) return setError('New password must be at least 6 characters.')
     if (newPassword !== confirm) return setError('New password and confirmation don’t match.')
 
     try {
       await changePassword({ currentPassword, newPassword }).unwrap()
-      setSuccess(true)
+      toast.success('Password updated successfully!')
       setCurrentPassword('')
       setNewPassword('')
       setConfirm('')
-    } catch (err) {
-      setError((err as { data?: string })?.data ?? 'Could not change password.')
+    } catch (err: any) {
+      const errMsg = err?.data?.message || err?.message || 'Could not change password.'
+      setError(errMsg)
+      toast.error(errMsg)
     }
   }
 
@@ -202,17 +251,13 @@ function ChangePasswordForm() {
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700 ring-1 ring-red-600/20">{error}</div>
       )}
-      {success && (
-        <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-4 py-2.5 text-sm text-brand-700 ring-1 ring-brand-600/20">
-          <Check className="h-4 w-4" /> Password updated successfully.
-        </div>
-      )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Input
           label="Current password"
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder="Enter current password"
           leftIcon={<Lock className="h-4 w-4" />}
           required
         />
@@ -221,6 +266,7 @@ function ChangePasswordForm() {
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Enter new password"
           leftIcon={<Lock className="h-4 w-4" />}
           required
         />
@@ -229,6 +275,7 @@ function ChangePasswordForm() {
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
+          placeholder="Confirm new password"
           leftIcon={<Lock className="h-4 w-4" />}
           required
         />
@@ -237,30 +284,7 @@ function ChangePasswordForm() {
         <Button type="submit" loading={isLoading}>
           Update password
         </Button>
-        <span className="text-xs text-ink-400">Demo current password: admin123</span>
       </div>
     </form>
-  )
-}
-
-function SettingToggle({
-  title,
-  description,
-  checked,
-  onChange,
-}: {
-  title: string
-  description: string
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <p className="text-sm font-medium text-ink-900">{title}</p>
-        <p className="mt-0.5 text-xs text-ink-500">{description}</p>
-      </div>
-      <Switch checked={checked} onChange={onChange} label={title} />
-    </div>
   )
 }

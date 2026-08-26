@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,29 +15,62 @@ export interface ModalProps {
 
 const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }
 
-export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  size = 'md',
+}: ModalProps) {
+  const [mounted, setMounted] = useState(open)
+  const [active, setActive] = useState(open)
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      const timer = setTimeout(() => setActive(true), 10)
+      document.body.style.overflow = 'hidden'
+      return () => clearTimeout(timer)
+    } else {
+      setActive(false)
+      const timer = setTimeout(() => {
+        setMounted(false)
+        document.body.style.overflow = ''
+      }, 200)
+      return () => clearTimeout(timer)
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!mounted) return null
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop with smooth fade transition */}
+      <div
+        className={cn(
+          'absolute inset-0 bg-ink-900/40 backdrop-blur-sm transition-opacity duration-200 ease-out',
+          active ? 'opacity-100' : 'opacity-0',
+        )}
+        onClick={onClose}
+      />
+
+      {/* Modal Box with smooth scale & fade-in/out transition */}
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative w-full animate-fade-in rounded-xl bg-white shadow-dropdown',
+          'relative w-full rounded-xl bg-white shadow-dropdown transition-all duration-200 ease-out transform',
           sizes[size],
+          active ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2',
         )}
       >
         {(title || description) && (
@@ -48,7 +81,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg p-1 text-ink-500 hover:bg-ink-100"
+              className="rounded-lg p-1 text-ink-500 hover:bg-ink-100 transition-colors"
               aria-label="Close"
             >
               <X className="h-5 w-5" />

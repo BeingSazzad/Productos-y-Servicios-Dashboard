@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Megaphone, Plus, Send } from 'lucide-react'
+import { Megaphone, Plus, Send, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Badge, type BadgeTone } from '@/components/ui/Badge'
@@ -9,58 +9,71 @@ import { Select } from '@/components/ui/Select'
 import { RichTextEditor } from '@/components/ui/RichTextEditor'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingState } from '@/components/ui/Spinner'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import {
   useGetAnnouncementsQuery,
   useCreateAnnouncementMutation,
+  useDeleteAnnouncementMutation,
 } from '@/services/endpoints/engagementApi'
-import { formatNumber, stripHtml } from '@/lib/utils'
-import type { Announcement, AnnouncementAudience, AnnouncementStatus } from '@/types/models'
+import { formatNumber, stripHtml, formatDate } from '@/lib/utils'
+import type { Announcement, AnnouncementAudience } from '@/types/models'
 import type { Option } from '@/types/common.types'
 
 const AUDIENCE_OPTIONS: Option<AnnouncementAudience>[] = [
-  { label: 'Everyone', value: 'all' },
+  { label: 'Everyone', value: 'everyone' },
   { label: 'Buyers', value: 'buyers' },
-  { label: 'All sellers', value: 'sellers' },
+  { label: 'All sellers', value: 'all_sellers' },
   { label: 'Product sellers', value: 'product_sellers' },
   { label: 'Service sellers', value: 'service_sellers' },
 ]
 
-const CHANNEL_OPTIONS: Option<Announcement['channel']>[] = [
-  { label: 'Push notification', value: 'push' },
-  { label: 'Email', value: 'email' },
-  { label: 'In-app', value: 'in_app' },
-]
-
-const statusTone: Record<AnnouncementStatus, BadgeTone> = {
+const statusTone: Record<string, BadgeTone> = {
   sent: 'green',
   scheduled: 'blue',
   draft: 'gray',
 }
 
-const audienceLabel: Record<AnnouncementAudience, string> = {
+const audienceLabel: Record<string, string> = {
+  everyone: 'Everyone',
   all: 'Everyone',
   buyers: 'Buyers',
+  all_sellers: 'All sellers',
   sellers: 'All sellers',
   product_sellers: 'Product sellers',
   service_sellers: 'Service sellers',
 }
 
 export default function AnnouncementsPage() {
-  const { data: announcements, isLoading } = useGetAnnouncementsQuery()
+  const { data, isLoading } = useGetAnnouncementsQuery()
   const [createAnnouncement, { isLoading: sending }] = useCreateAnnouncementMutation()
+  const [deleteAnnouncement, { isLoading: deleting }] = useDeleteAnnouncementMutation()
+
   const [open, setOpen] = useState(false)
+  const [toDelete, setToDelete] = useState<Announcement | null>(null)
   const [form, setForm] = useState({
     title: '',
-    body: '',
-    audience: 'all' as AnnouncementAudience,
-    channel: 'push' as Announcement['channel'],
+    message: '',
+    audience: 'everyone' as AnnouncementAudience,
   })
+
+  const announcements = data?.items || []
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault()
-    await createAnnouncement(form).unwrap()
+    if (!form.title.trim() || !form.message.trim()) return
+    await createAnnouncement({
+      title: form.title,
+      message: form.message,
+      audience: form.audience,
+    }).unwrap()
     setOpen(false)
-    setForm({ title: '', body: '', audience: 'all', channel: 'push' })
+    setForm({ title: '', message: '', audience: 'everyone' })
+  }
+
+  const handleDelete = async () => {
+    if (!toDelete) return
+    await deleteAnnouncement(toDelete.id).unwrap()
+    setToDelete(null)
   }
 
   return (
@@ -75,31 +88,55 @@ export default function AnnouncementsPage() {
         }
       />
 
-      {isLoading || !announcements ? (
+      {isLoading ? (
         <LoadingState />
+      ) : announcements.length === 0 ? (
+        <Card>
+          <CardBody className="py-12 text-center text-ink-500">
+            <Megaphone className="mx-auto h-8 w-8 text-ink-300" />
+            <h3 className="mt-2 text-sm font-medium text-ink-900">No announcements yet</h3>
+            <p className="mt-1 text-sm text-ink-500">Create your first broadcast announcement to notify users.</p>
+          </CardBody>
+        </Card>
       ) : (
         <div className="space-y-3">
-          {announcements.map((a) => (
-            <Card key={a.id}>
-              <CardBody className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                  <Megaphone className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-medium text-ink-900">{a.title}</h3>
-                    <Badge tone={statusTone[a.status]}>{a.status}</Badge>
+          {announcements.map((a) => {
+            const authorName = typeof a.createdBy === 'object' && a.createdBy?.name ? a.createdBy.name : null
+            return (
+              <Card key={a.id}>
+                <CardBody className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                    <Megaphone className="h-5 w-5" />
                   </div>
-                  <p className="mt-1 text-sm text-ink-500">{stripHtml(a.body)}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-400">
-                    <span>{audienceLabel[a.audience]}</span>
-                    <span>· {a.channel}</span>
-                    {a.status === 'sent' && <span>· {formatNumber(a.recipients)} recipients</span>}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-medium text-ink-900">{a.title}</h3>
+                        <Badge tone={statusTone[a.status] || 'gray'}>{a.status}</Badge>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setToDelete(a)}
+                        className="text-red-600 hover:bg-red-50"
+                        title="Delete announcement"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="mt-1 text-sm text-ink-600 line-clamp-3">{stripHtml(a.message || a.body || '')}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-400">
+                      <span>Audience: {audienceLabel[a.audience] || a.audience}</span>
+                      {a.channel && <span>· Channel: {a.channel}</span>}
+                      {authorName && <span>· Created by: {authorName}</span>}
+                      {a.recipients ? <span>· {formatNumber(a.recipients)} recipients</span> : null}
+                      <span>· {formatDate(a.sentAt || a.createdAt)}</span>
+                    </div>
                   </div>
-                </div>
-              </CardBody>
-            </Card>
-          ))}
+                </CardBody>
+              </Card>
+            )
+          })}
         </div>
       )}
 
@@ -124,30 +161,34 @@ export default function AnnouncementsPage() {
             label="Title"
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            placeholder="Announcement title"
             required
           />
           <RichTextEditor
             label="Message"
-            value={form.body}
-            onChange={(body) => setForm((f) => ({ ...f, body }))}
+            value={form.message}
+            onChange={(message) => setForm((f) => ({ ...f, message }))}
             placeholder="Write your announcement…"
           />
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Audience"
-              options={AUDIENCE_OPTIONS}
-              value={form.audience}
-              onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value as AnnouncementAudience }))}
-            />
-            <Select
-              label="Channel"
-              options={CHANNEL_OPTIONS}
-              value={form.channel}
-              onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value as Announcement['channel'] }))}
-            />
-          </div>
+          <Select
+            label="Audience"
+            options={AUDIENCE_OPTIONS}
+            value={form.audience}
+            onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value as AnnouncementAudience }))}
+          />
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title={`Delete announcement “${toDelete?.title}”?`}
+        description="This action cannot be undone. The announcement record will be permanently deleted."
+        confirmLabel="Delete announcement"
+        tone="danger"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setToDelete(null)}
+      />
     </div>
   )
 }

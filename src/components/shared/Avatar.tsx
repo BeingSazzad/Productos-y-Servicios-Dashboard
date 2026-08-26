@@ -1,4 +1,5 @@
 import { cn, colorFromString, getInitials } from '@/lib/utils'
+import { imageUrl } from '@/components/shared/getImageUrl'
 
 interface AvatarProps {
   name: string
@@ -10,10 +11,11 @@ interface AvatarProps {
 const sizes = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-12 w-12 text-base' }
 
 export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
-  if (src) {
+  const fullSrc = imageUrl(src)
+  if (fullSrc) {
     return (
       <img
-        src={src}
+        src={fullSrc}
         alt={name}
         className={cn('rounded-full object-cover', sizes[size], className)}
       />

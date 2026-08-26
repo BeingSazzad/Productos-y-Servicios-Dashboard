@@ -51,32 +51,35 @@ export default function UsersPage() {
       key: 'actions',
       header: 'Actions',
       align: 'right',
-      render: (u) => (
-        <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="outline" onClick={() => navigate(ROUTES.userDetail(u.id))}>
-            <Eye className="h-3.5 w-3.5" /> View
-          </Button>
-          {u.status === 'suspended' ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={updating}
-              onClick={() => updateStatus({ id: u.id, status: 'active' })}
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Unban
+      render: (u) => {
+        const isInactive = u.status === 'inactive' || u.status === 'suspended'
+        return (
+          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button size="sm" variant="outline" onClick={() => navigate(ROUTES.userDetail(u.id))}>
+              <Eye className="h-3.5 w-3.5" /> View
             </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="danger"
-              disabled={updating}
-              onClick={() => updateStatus({ id: u.id, status: 'suspended' })}
-            >
-              <Ban className="h-3.5 w-3.5" /> Ban
-            </Button>
-          )}
-        </div>
-      ),
+            {isInactive ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={updating}
+                onClick={() => updateStatus({ id: u.id, status: 'active' })}
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Activate
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="danger"
+                disabled={updating}
+                onClick={() => updateStatus({ id: u.id, status: 'inactive' })}
+              >
+                <Ban className="h-3.5 w-3.5" /> Deactivate
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
