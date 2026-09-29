@@ -344,13 +344,18 @@ export interface FeaturedPositionPrice {
   price: number
 }
 
-/** Per-city ad channel slot configuration (featured + banner). */
+/** Per-city / location ad channel slot configuration (featured + banner). */
 export interface CityAdConfiguration {
   id: ID
   _id?: ID
   country: string
   countryCode: string
+  province?: string
+  provinceCode?: string
   city: string
+  canton?: string
+  sector?: string
+  neighborhood?: string
   latitude: number
   longitude: number
   bannerCapacity?: number

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { findCity, findCountry, getCitiesByCountry, getCountries } from './locations'
+import {
+  findCity,
+  findCountry,
+  findProvince,
+  getCitiesByCountry,
+  getCitiesByProvince,
+  getCountries,
+  getProvincesByCountry,
+} from './locations'
 
 describe('locations', () => {
   it('includes Bangladesh with ISO code BD', () => {
@@ -16,4 +24,17 @@ describe('locations', () => {
     expect(Number(dhaka?.longitude)).not.toBeNaN()
     expect(getCitiesByCountry('BD').length).toBeGreaterThan(1)
   })
+
+  it('returns provinces for Ecuador and cities within a province', () => {
+    const provinces = getProvincesByCountry('EC')
+    expect(provinces.length).toBeGreaterThanOrEqual(24)
+
+    const pichincha = findProvince('EC', 'Pichincha')
+    expect(pichincha).toBeDefined()
+
+    const cities = getCitiesByProvince('EC', pichincha?.isoCode)
+    expect(cities.length).toBeGreaterThan(0)
+    expect(cities.some((c) => c.name.toLowerCase().includes('quito'))).toBe(true)
+  })
 })
+

@@ -56,11 +56,16 @@ describe('buildCityAdConfigFormData', () => {
   it('sends JSON in `data` and the image file as `defaultFeaturedImage`', () => {
     const file = new File(['img'], 'cover.jpeg', { type: 'image/jpeg' })
     const formData = buildCityAdConfigFormData({
-      country: 'Bangladesh',
-      countryCode: 'BD',
-      city: 'Chatto',
-      latitude: 23.8103,
-      longitude: 91.4125,
+      country: 'Ecuador',
+      countryCode: 'EC',
+      province: 'Pichincha',
+      provinceCode: 'P',
+      city: 'Quito',
+      canton: 'Quito',
+      sector: 'Cumbayá',
+      neighborhood: 'San Juan',
+      latitude: -0.1807,
+      longitude: -78.4678,
       featuredCapacity: 5,
       featuredEnabled: true,
       featuredPositionPricing: [{ position: 1, price: 100 }],
@@ -70,14 +75,19 @@ describe('buildCityAdConfigFormData', () => {
 
     expect(formData.get('data')).toBe(
       JSON.stringify({
-        country: 'Bangladesh',
-        countryCode: 'BD',
-        city: 'Chatto',
-        latitude: 23.8103,
-        longitude: 91.4125,
+        country: 'Ecuador',
+        countryCode: 'EC',
+        city: 'Quito',
+        latitude: -0.1807,
+        longitude: -78.4678,
         featuredCapacity: 5,
         featuredEnabled: true,
         featuredPositionPricing: [{ position: 1, price: 100 }],
+        province: 'Pichincha',
+        provinceCode: 'P',
+        canton: 'Quito',
+        sector: 'Cumbayá',
+        neighborhood: 'San Juan',
         status: 'active',
       }),
     )

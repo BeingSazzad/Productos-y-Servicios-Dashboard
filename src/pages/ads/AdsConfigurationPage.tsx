@@ -22,9 +22,12 @@ import { PAGE_SIZE } from '@/lib/constants'
 import {
   findCity,
   findCountry,
-  getCitiesByCountry,
+  findProvince,
+  getCitiesByProvince,
   getCitySelectOptions,
   getCountries,
+  getProvincesByCountry,
+  getProvinceSelectOptions,
   makeCustomCity,
 } from '@/lib/locations'
 import { formatDate } from '@/lib/format'
@@ -71,16 +74,36 @@ export default function AdsConfigurationPage() {
   const columns: Column<CityAdConfiguration>[] = [
     {
       key: 'city',
-      header: 'City',
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <CityImageThumb src={row.defaultFeaturedImage} alt={row.city} />
-          <div>
-            <p className="font-medium text-ink-900">{row.city}</p>
-            <p className="text-xs text-ink-500">{row.country}</p>
+      header: 'Location',
+      render: (row) => {
+        const hierarchy = [
+          row.country,
+          row.province,
+          row.city || row.canton,
+          row.sector,
+          row.neighborhood,
+        ]
+          .filter(Boolean)
+          .join(' › ')
+
+        return (
+          <div className="flex items-center gap-3">
+            <CityImageThumb src={row.defaultFeaturedImage} alt={row.city || row.canton || 'Location'} />
+            <div>
+              <p className="font-medium text-ink-900">
+                {row.city || row.canton || 'Unnamed Location'}
+                {row.sector ? <span className="font-normal text-ink-600"> · {row.sector}</span> : null}
+                {row.neighborhood ? (
+                  <span className="text-xs font-normal text-ink-400"> ({row.neighborhood})</span>
+                ) : null}
+              </p>
+              <p className="max-w-sm truncate text-xs text-ink-500" title={hierarchy}>
+                {hierarchy || row.country}
+              </p>
+            </div>
           </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       key: 'featured',
@@ -141,9 +164,10 @@ export default function AdsConfigurationPage() {
 
   const handleConfirmDelete = async () => {
     if (!toDelete) return
+    const displayName = toDelete.city || toDelete.canton || 'location'
     try {
       await deleteConfig(toDelete.id).unwrap()
-      toast.success(`Ads configuration for “${toDelete.city}” deleted successfully.`)
+      toast.success(`Ads configuration for “${displayName}” deleted successfully.`)
     } catch (err: any) {
       toast.error(err?.data?.message || err?.message || 'Failed to delete configuration.')
     } finally {
@@ -155,10 +179,10 @@ export default function AdsConfigurationPage() {
     <div>
       <PageHeader
         title="Ads Configuration"
-        description="Manage city-wise featured ad channels, slot capacity, and position pricing."
+        description="Manage location-wise featured ad channels, slot capacity, and position pricing across Country › Province › City/Canton › Sector › Neighborhood."
         actions={
           <Button onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> New city config
+            <Plus className="h-4 w-4" /> New ads config
           </Button>
         }
       />
@@ -168,7 +192,7 @@ export default function AdsConfigurationPage() {
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder="Search by city or country…"
+            placeholder="Search by location, city, province…"
             className="w-full sm:max-w-xs"
           />
           <div className="w-full sm:w-44">
@@ -182,8 +206,8 @@ export default function AdsConfigurationPage() {
           rowKey={(row) => row.id}
           loading={isFetching}
           onRowClick={(row) => setViewing(row)}
-          emptyTitle="No city ad configurations"
-          emptyDescription="Create a configuration to set featured ad slots for a city."
+          emptyTitle="No ads configurations"
+          emptyDescription="Create a configuration to set featured ad slots for a location."
         />
 
         {data && (
@@ -212,8 +236,8 @@ export default function AdsConfigurationPage() {
 
       <ConfirmDialog
         open={Boolean(toDelete)}
-        title={`Delete “${toDelete?.city}” ads configuration?`}
-        description="This removes the city’s featured ad channel settings."
+        title={`Delete “${toDelete?.city || toDelete?.canton || 'location'}” ads configuration?`}
+        description="This removes the location’s featured ad channel settings."
         confirmLabel="Delete configuration"
         tone="danger"
         loading={deleting}
@@ -279,13 +303,18 @@ function CityAdConfigDetailsModal({
   const pricing = [...(config?.featuredPositionPricing ?? [])].sort(
     (a, b) => Number(a.position) - Number(b.position),
   )
+  const hierarchy = config
+    ? [config.country, config.province, config.city || config.canton, config.sector, config.neighborhood]
+        .filter(Boolean)
+        .join(' › ')
+    : ''
 
   return (
     <Modal
       open={Boolean(config)}
       onClose={onClose}
-      title={config ? `${config.city} · Ads configuration` : 'Ads configuration'}
-      description="Featured slot capacity and position pricing for this city."
+      title={config ? `${config.city || config.canton} · Ads configuration` : 'Ads configuration'}
+      description={hierarchy || 'Featured slot capacity and position pricing for this location.'}
       size="lg"
       footer={
         <>
@@ -301,9 +330,9 @@ function CityAdConfigDetailsModal({
       {config && (
         <div className="space-y-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <div className="h-28 w-full overflow-hidden rounded-lg bg-ink-100 sm:h-28 sm:w-40 shrink-0">
+            <div className="h-28 w-full shrink-0 overflow-hidden rounded-lg bg-ink-100 sm:h-28 sm:w-40">
               {imageSrc ? (
-                <img src={imageSrc} alt={config.city} className="h-full w-full object-cover" />
+                <img src={imageSrc} alt={config.city || config.canton} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-ink-400">
                   <ImageIcon className="h-6 w-6" />
@@ -312,15 +341,27 @@ function CityAdConfigDetailsModal({
             </div>
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg font-semibold text-ink-900">{config.city}</h3>
+                <h3 className="text-lg font-semibold text-ink-900">{config.city || config.canton}</h3>
                 <StatusBadge status={(config.status as EntityStatus) || 'active'} />
                 <Badge tone={config.featuredEnabled ? 'green' : 'gray'}>
                   Featured {config.featuredEnabled ? 'on' : 'off'}
                 </Badge>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <DetailItem label="Country" value={config.country} />
+                <DetailItem label="Province" value={config.province || '—'} />
+                <DetailItem label="City / Canton" value={config.city || config.canton || '—'} />
+                <DetailItem label="Sector" value={config.sector || '—'} />
+                <DetailItem label="Neighborhood" value={config.neighborhood || '—'} />
                 <DetailItem label="Featured capacity" value={`${config.featuredCapacity} slots`} />
+                <DetailItem
+                  label="Coordinates"
+                  value={
+                    config.latitude != null && config.longitude != null
+                      ? `${Number(config.latitude).toFixed(4)}, ${Number(config.longitude).toFixed(4)}`
+                      : '—'
+                  }
+                />
                 <DetailItem
                   label="Created"
                   value={config.createdAt ? formatDate(config.createdAt) : '—'}
@@ -340,7 +381,7 @@ function CityAdConfigDetailsModal({
             </div>
             {pricing.length === 0 ? (
               <p className="rounded-lg border border-dashed border-ink-200 px-3 py-6 text-center text-sm text-ink-500">
-                No position prices set for this city.
+                No position prices set for this location.
               </p>
             ) : (
               <div className="overflow-hidden rounded-lg border border-ink-100">
@@ -372,10 +413,15 @@ function CityAdConfigDetailsModal({
 }
 
 const emptyForm = {
-  country: 'Bangladesh',
-  countryCode: 'BD',
+  country: 'Ecuador',
+  countryCode: 'EC',
+  province: '',
+  provinceCode: '',
   city: '',
   cityKey: '',
+  canton: '',
+  sector: '',
+  neighborhood: '',
   latitude: '',
   longitude: '',
   featuredCapacity: '5',
@@ -398,10 +444,16 @@ function CityAdConfigFormModal({
 
   const [country, setCountry] = useState(emptyForm.country)
   const [countryCode, setCountryCode] = useState(emptyForm.countryCode)
+  const [province, setProvince] = useState(emptyForm.province)
+  const [provinceCode, setProvinceCode] = useState(emptyForm.provinceCode)
   const [city, setCity] = useState(emptyForm.city)
   const [cityKey, setCityKey] = useState(emptyForm.cityKey)
+  const [canton, setCanton] = useState(emptyForm.canton)
+  const [sector, setSector] = useState(emptyForm.sector)
+  const [neighborhood, setNeighborhood] = useState(emptyForm.neighborhood)
   const [latitude, setLatitude] = useState(emptyForm.latitude)
   const [longitude, setLongitude] = useState(emptyForm.longitude)
+  const [isCustomCity, setIsCustomCity] = useState(false)
   const [featuredCapacity, setFeaturedCapacity] = useState(emptyForm.featuredCapacity)
   const [featuredEnabled, setFeaturedEnabled] = useState(emptyForm.featuredEnabled)
   const [status, setStatus] = useState(emptyForm.status)
@@ -410,16 +462,24 @@ function CityAdConfigFormModal({
   const [previewUrl, setPreviewUrl] = useState('')
   const [locationReady, setLocationReady] = useState(false)
 
+  const provinces = useMemo(() => {
+    return getProvincesByCountry(countryCode)
+  }, [countryCode])
+
+  const provinceOptions = useMemo(() => {
+    return getProvinceSelectOptions(provinces)
+  }, [provinces])
+
   const cities = useMemo(() => {
-    const list = getCitiesByCountry(countryCode)
+    const list = getCitiesByProvince(countryCode, provinceCode)
     const hasSelected =
       Boolean(cityKey) &&
       list.some((item) => item.key === cityKey || item.name.toLowerCase() === city.toLowerCase())
-    if (city && !hasSelected) {
-      return [makeCustomCity(city, latitude || 0, longitude || 0), ...list]
+    if (city && !hasSelected && !isCustomCity) {
+      return [makeCustomCity(city, latitude || 0, longitude || 0, provinceCode), ...list]
     }
     return list
-  }, [countryCode, city, cityKey, latitude, longitude])
+  }, [countryCode, provinceCode, city, cityKey, latitude, longitude, isCustomCity])
 
   const cityOptions = useMemo(() => getCitySelectOptions(cities), [cities])
 
@@ -432,19 +492,46 @@ function CityAdConfigFormModal({
       const matchedCountry = findCountry(config.countryCode || config.country)
       const nextCountryCode = matchedCountry?.isoCode || config.countryCode || ''
       const nextCountry = matchedCountry?.name || config.country || ''
-      const matchedCity = nextCountryCode ? findCity(nextCountryCode, config.city) : undefined
+      const matchedProvince = nextCountryCode
+        ? findProvince(nextCountryCode, config.provinceCode || config.province || '')
+        : undefined
+      const nextProvinceCode = matchedProvince?.isoCode || config.provinceCode || ''
+      const nextProvince = matchedProvince?.name || config.province || ''
+      const targetCityName = config.city || config.canton || ''
+      const matchedCity = nextCountryCode
+        ? findCity(nextCountryCode, targetCityName, nextProvinceCode)
+        : undefined
       const capacity = config.featuredCapacity || config.featuredPositionPricing.length || 0
 
       setCountry(nextCountry)
       setCountryCode(nextCountryCode)
+      setProvince(nextProvince)
+      setProvinceCode(nextProvinceCode)
+      setCity(targetCityName)
+      setCanton(config.canton || targetCityName)
+      setSector(config.sector || '')
+      setNeighborhood(config.neighborhood || '')
+
       if (matchedCity) {
         setCity(matchedCity.name)
         setCityKey(matchedCity.key)
-      } else {
-        const custom = makeCustomCity(config.city, config.latitude ?? 0, config.longitude ?? 0)
-        setCity(config.city || '')
+        setIsCustomCity(false)
+      } else if (targetCityName) {
+        const custom = makeCustomCity(
+          targetCityName,
+          config.latitude ?? 0,
+          config.longitude ?? 0,
+          nextProvinceCode,
+        )
+        setCity(targetCityName)
         setCityKey(custom.key)
+        setIsCustomCity(true)
+      } else {
+        setCity('')
+        setCityKey('')
+        setIsCustomCity(false)
       }
+
       setLatitude(config.latitude != null ? String(config.latitude) : '')
       setLongitude(config.longitude != null ? String(config.longitude) : '')
       setFeaturedCapacity(String(capacity))
@@ -456,10 +543,16 @@ function CityAdConfigFormModal({
     } else {
       setCountry(emptyForm.country)
       setCountryCode(emptyForm.countryCode)
+      setProvince(emptyForm.province)
+      setProvinceCode(emptyForm.provinceCode)
       setCity(emptyForm.city)
       setCityKey(emptyForm.cityKey)
+      setCanton(emptyForm.canton)
+      setSector(emptyForm.sector)
+      setNeighborhood(emptyForm.neighborhood)
       setLatitude(emptyForm.latitude)
       setLongitude(emptyForm.longitude)
+      setIsCustomCity(false)
       setFeaturedCapacity(emptyForm.featuredCapacity)
       setFeaturedEnabled(emptyForm.featuredEnabled)
       setStatus(emptyForm.status)
@@ -474,10 +567,35 @@ function CityAdConfigFormModal({
     const selected = findCountry(isoCode)
     setCountryCode(isoCode)
     setCountry(selected?.name || '')
+    setProvince('')
+    setProvinceCode('')
     setCity('')
     setCityKey('')
+    setCanton('')
+    setSector('')
+    setNeighborhood('')
     setLatitude('')
     setLongitude('')
+    setIsCustomCity(false)
+  }
+
+  const handleProvinceChange = (isoCode: string) => {
+    const selected = provinces.find((p) => p.isoCode === isoCode)
+    setProvinceCode(isoCode)
+    setProvince(selected?.name || '')
+    setCity('')
+    setCityKey('')
+    setCanton('')
+    setSector('')
+    setNeighborhood('')
+    setIsCustomCity(false)
+    if (selected?.latitude && selected?.longitude) {
+      setLatitude(selected.latitude)
+      setLongitude(selected.longitude)
+    } else {
+      setLatitude('')
+      setLongitude('')
+    }
   }
 
   const handleCityChange = (key: string) => {
@@ -485,12 +603,14 @@ function CityAdConfigFormModal({
     if (!selected) {
       setCity('')
       setCityKey('')
+      setCanton('')
       setLatitude('')
       setLongitude('')
       return
     }
     setCityKey(selected.key)
     setCity(selected.name)
+    setCanton(selected.name)
     setLatitude(selected.latitude)
     setLongitude(selected.longitude)
   }
@@ -523,19 +643,36 @@ function CityAdConfigFormModal({
       toast.error('Select a country.')
       return
     }
-    if (!city) {
-      toast.error('Select a city.')
+    if (provinceOptions.length > 0 && !province) {
+      toast.error('Select a province.')
       return
     }
-    if (latitude === '' || longitude === '' || Number.isNaN(Number(latitude)) || Number.isNaN(Number(longitude))) {
-      toast.error('Select a city to set latitude and longitude.')
+    if (!city.trim()) {
+      toast.error('Select or enter a city / canton.')
       return
     }
+    if (
+      latitude === '' ||
+      longitude === '' ||
+      Number.isNaN(Number(latitude)) ||
+      Number.isNaN(Number(longitude))
+    ) {
+      toast.error('Coordinates (latitude and longitude) are required. Select a location or enter coordinates.')
+      return
+    }
+
+    const finalCity = city.trim()
+    const finalCanton = (canton || city).trim()
 
     const payload: CityAdConfigInput = {
       country: country.trim(),
       countryCode: countryCode.trim().toUpperCase(),
-      city: city.trim(),
+      province: province.trim(),
+      provinceCode: provinceCode.trim().toUpperCase(),
+      city: finalCity,
+      canton: finalCanton,
+      sector: sector.trim(),
+      neighborhood: neighborhood.trim(),
       latitude: Number(latitude),
       longitude: Number(longitude),
       featuredCapacity: Number(featuredCapacity) || 0,
@@ -562,13 +699,14 @@ function CityAdConfigFormModal({
   }
 
   const saving = creating || updating
+  const currentTitle = config ? config.city || config.canton : 'New'
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={config ? `Edit · ${config.city}` : 'New city ads configuration'}
-      description="Choose a country and city. Coordinates are set from the city and shown on the map."
+      title={config ? `Edit · ${currentTitle}` : 'New ads configuration'}
+      description="Configure location hierarchy: Country › Province › City/Canton › Sector › Neighborhood. Coordinates are shown on the map."
       size="xl"
       footer={
         <>
@@ -582,24 +720,136 @@ function CityAdConfigFormModal({
       }
     >
       <form id="city-ad-config-form" onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select
-            label="Country"
-            options={COUNTRY_OPTIONS}
-            placeholder="Select country"
-            value={countryCode}
-            onChange={(e) => handleCountryChange(e.target.value)}
-            required
-          />
-          <Select
-            label="City"
-            options={cityOptions}
-            placeholder={countryCode ? 'Select city' : 'Select a country first'}
-            value={cityKey}
-            onChange={(e) => handleCityChange(e.target.value)}
-            disabled={!countryCode}
-            required
-          />
+        <div className="space-y-4 rounded-xl border border-ink-100 bg-ink-50/50 p-4">
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+            <span className={country ? 'font-bold text-brand-600' : ''}>Country</span>
+            <span>›</span>
+            <span className={province ? 'font-bold text-brand-600' : ''}>Province</span>
+            <span>›</span>
+            <span className={city ? 'font-bold text-brand-600' : ''}>City / Canton</span>
+            <span>›</span>
+            <span className={sector ? 'font-bold text-brand-600' : ''}>Sector</span>
+            <span>›</span>
+            <span className={neighborhood ? 'font-bold text-brand-600' : ''}>Neighborhood</span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Select
+              label="Country"
+              options={COUNTRY_OPTIONS}
+              placeholder="Select country"
+              value={countryCode}
+              onChange={(e) => handleCountryChange(e.target.value)}
+              required
+            />
+            <Select
+              label="Province"
+              options={provinceOptions}
+              placeholder={countryCode ? 'Select province' : 'Select a country first'}
+              value={provinceCode}
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              disabled={!countryCode || provinceOptions.length === 0}
+              required={provinceOptions.length > 0}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {isCustomCity || cityOptions.length === 0 ? (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-sm font-medium text-ink-700">City / Canton</label>
+                  {cityOptions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCity(false)
+                        setCity('')
+                        setCityKey('')
+                        setCanton('')
+                      }}
+                      className="text-xs text-brand-600 hover:underline"
+                    >
+                      Choose from list
+                    </button>
+                  )}
+                </div>
+                <Input
+                  placeholder="Enter city / canton"
+                  value={city}
+                  onChange={(e) => {
+                    setCity(e.target.value)
+                    setCanton(e.target.value)
+                  }}
+                  disabled={!countryCode}
+                  required
+                />
+              </div>
+            ) : (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-sm font-medium text-ink-700">City / Canton</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCity(true)
+                      setCity('')
+                      setCityKey('__custom__')
+                      setCanton('')
+                    }}
+                    className="text-xs text-brand-600 hover:underline"
+                  >
+                    + Custom city/canton
+                  </button>
+                </div>
+                <Select
+                  options={cityOptions}
+                  placeholder={provinceCode ? 'Select city / canton' : 'Select a province first'}
+                  value={cityKey}
+                  onChange={(e) => handleCityChange(e.target.value)}
+                  disabled={!provinceCode}
+                  required
+                />
+              </div>
+            )}
+
+            <Input
+              label="Sector (Optional)"
+              placeholder="e.g. Norte, Centro, Cumbayá"
+              value={sector}
+              onChange={(e) => setSector(e.target.value)}
+              disabled={!countryCode}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label="Neighborhood (Optional)"
+              placeholder="e.g. Barrio San Juan, Bellavista"
+              value={neighborhood}
+              onChange={(e) => setNeighborhood(e.target.value)}
+              disabled={!countryCode}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label="Latitude"
+                type="number"
+                step="any"
+                placeholder="Latitude"
+                value={latitude}
+                onChange={(e) => setLatitude(e.target.value)}
+                required
+              />
+              <Input
+                label="Longitude"
+                type="number"
+                step="any"
+                placeholder="Longitude"
+                value={longitude}
+                onChange={(e) => setLongitude(e.target.value)}
+                required
+              />
+            </div>
+          </div>
         </div>
 
         {locationReady && <GoogleLocationMap active={open} latitude={latitude} longitude={longitude} />}

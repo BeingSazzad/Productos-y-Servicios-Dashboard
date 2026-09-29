@@ -6,7 +6,12 @@ import type { CityAdConfiguration, FeaturedPositionPrice } from '@/types/models'
 export interface CityAdConfigInput {
   country: string
   countryCode: string
+  province?: string
+  provinceCode?: string
   city: string
+  canton?: string
+  sector?: string
+  neighborhood?: string
   latitude: number
   longitude: number
   featuredCapacity: number
@@ -31,7 +36,12 @@ export function mapBackendCityAdConfig(raw: any): CityAdConfiguration {
     _id: raw._id || id,
     country: raw.country || '',
     countryCode: raw.countryCode || '',
-    city: raw.city || '',
+    province: raw.province || '',
+    provinceCode: raw.provinceCode || '',
+    city: raw.city || raw.canton || '',
+    canton: raw.canton || raw.city || '',
+    sector: raw.sector || '',
+    neighborhood: raw.neighborhood || '',
     latitude: Number(raw.latitude) || 0,
     longitude: Number(raw.longitude) || 0,
     bannerCapacity: typeof raw.bannerCapacity === 'number' ? raw.bannerCapacity : undefined,
@@ -62,6 +72,12 @@ function toPayloadJson(body: CityAdConfigInput) {
       price: Number(item.price),
     })),
   }
+
+  if (body.province) payload.province = body.province
+  if (body.provinceCode) payload.provinceCode = body.provinceCode
+  if (body.canton) payload.canton = body.canton
+  if (body.sector) payload.sector = body.sector
+  if (body.neighborhood) payload.neighborhood = body.neighborhood
 
   if (body.status) {
     payload.status = body.status
