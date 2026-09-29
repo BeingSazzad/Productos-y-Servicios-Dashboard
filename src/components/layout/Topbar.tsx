@@ -41,7 +41,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const [notifOpen, setNotifOpen] = useState(false)
 
   const { data: notifData, isLoading: notifLoading } = useGetNotificationsQuery(
-    { limit: 20 },
+    { limit: 80 },
     { pollingInterval: 30000 },
   )
 
@@ -198,13 +198,15 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                             if (isUnread) handleMarkAsRead(item.id)
                           }}
                           className={cn(
-                            'group relative flex cursor-pointer items-start gap-3 p-3.5 transition-colors hover:bg-ink-50/80',
-                            isUnread ? 'bg-brand-50/30' : 'bg-white',
+                            'group relative flex cursor-pointer items-start gap-3 p-3.5 transition-all duration-300',
+                            isUnread
+                              ? 'animate-pulse-soft border-l-4 border-l-brand-500 hover:bg-brand-100/70'
+                              : 'bg-white hover:bg-ink-50/80 border-l-4 border-l-transparent',
                           )}
                         >
                           <div
                             className={cn(
-                              'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                              'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
                               isUnread ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500',
                             )}
                           >
@@ -222,7 +224,10 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                                 {item.title}
                               </p>
                               {isUnread && (
-                                <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" />
+                                <span className="relative flex h-2 w-2 shrink-0">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
+                                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-600" />
+                                </span>
                               )}
                             </div>
                             <p className="mt-0.5 text-xs text-ink-600 line-clamp-2">
