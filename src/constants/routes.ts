@@ -30,6 +30,7 @@ export const ROUTES = {
   // Engagement
   support: '/support',
   announcements: '/announcements',
+  reports: '/reports',
 
   // Administration
   admins: '/admins',

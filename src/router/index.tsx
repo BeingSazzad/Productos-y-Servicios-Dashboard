@@ -23,6 +23,7 @@ import PagesPage from '@/pages/cms/PagesPage'
 import FaqsPage from '@/pages/cms/FaqsPage'
 import SupportPage from '@/pages/support/SupportPage'
 import AnnouncementsPage from '@/pages/engagement/AnnouncementsPage'
+import ReportsPage from '@/pages/reports/ReportsPage'
 import AdminsPage from '@/pages/admins/AdminsPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import NotFoundPage from '@/pages/NotFoundPage'
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
 
           { path: ROUTES.support, element: <SupportPage /> },
           { path: ROUTES.announcements, element: <AnnouncementsPage /> },
+          { path: ROUTES.reports, element: <ReportsPage /> },
 
           { path: ROUTES.admins, element: <AdminsPage /> },
           { path: ROUTES.settings, element: <SettingsPage /> },
