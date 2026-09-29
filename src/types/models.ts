@@ -234,13 +234,16 @@ export interface Subscription {
 export interface Category {
   id: ID
   _id?: string
+  parentId?: string | null
   name: string
   description?: string
   type: StoreType
   status?: string
   isDeleted?: boolean
   listingCount: number
+  listingsCount?: number
   isActive: boolean
+  subCategories?: Category[]
   createdAt?: ISODate
   updatedAt?: ISODate
 }

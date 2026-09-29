@@ -6,6 +6,7 @@ export interface CategoryInput {
   name: string
   description?: string
   type: StoreType
+  parentId?: string | null
   status?: string
 }
 
@@ -20,9 +21,14 @@ export function mapBackendCategory(raw: any): Category {
     raw.count ??
     0
 
+  const subCategories = Array.isArray(raw.subCategories)
+    ? raw.subCategories.map(mapBackendCategory)
+    : undefined
+
   return {
     id: String(raw._id || raw.id || ''),
     _id: raw._id,
+    parentId: raw.parentId ? String(raw.parentId) : null,
     name: raw.name || '',
     description: raw.description || '',
     type: raw.type === 'service' ? 'service' : 'product',
@@ -30,18 +36,36 @@ export function mapBackendCategory(raw: any): Category {
     isActive: raw.status ? raw.status === 'active' : raw.isActive ?? true,
     isDeleted: Boolean(raw.isDeleted),
     listingCount,
+    listingsCount: listingCount,
+    subCategories,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   }
 }
 
+export interface GetCategoriesParams {
+  type?: StoreType
+  searchTerm?: string
+  status?: string
+}
+
 export const categoriesApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getCategories: builder.query<Category[], void>({
-      query: () => ({
-        url: '/categories',
-        method: 'GET',
-      }),
+    getCategories: builder.query<Category[], GetCategoriesParams | StoreType | void>({
+      query: (params) => {
+        const queryParams: Record<string, string> = {}
+        const type = typeof params === 'string' ? params : params?.type
+        if (type) queryParams.type = type
+        if (typeof params === 'object' && params !== null) {
+          if (params.searchTerm) queryParams.searchTerm = params.searchTerm
+          if (params.status && params.status !== 'all') queryParams.status = params.status
+        }
+        return {
+          url: '/categories',
+          method: 'GET',
+          params: queryParams,
+        }
+      },
       transformResponse: (response: any): Category[] => {
         const list = Array.isArray(response?.data)
           ? response.data
@@ -53,31 +77,49 @@ export const categoriesApi = api.injectEndpoints({
       providesTags: ['Category'],
     }),
 
+    getSingleCategory: builder.query<Category, ID>({
+      query: (id) => ({
+        url: `/categories/${id}`,
+        method: 'GET',
+      }),
+      transformResponse: (response: any) => mapBackendCategory(response?.data || response),
+      providesTags: (_res, _err, id) => [{ type: 'Category', id }, 'Category'],
+    }),
+
     createCategory: builder.mutation<Category, CategoryInput>({
-      query: (body) => ({
-        url: '/categories',
-        method: 'POST',
-        body: {
+      query: (body) => {
+        const payload: Record<string, unknown> = {
           name: body.name,
           description: body.description || '',
           type: body.type,
-        },
-      }),
+        }
+        if (body.parentId) payload.parentId = body.parentId
+        if (body.status) payload.status = body.status
+        return {
+          url: '/categories',
+          method: 'POST',
+          body: payload,
+        }
+      },
       transformResponse: (response: any) => mapBackendCategory(response?.data || response),
       invalidatesTags: ['Category'],
     }),
 
     updateCategory: builder.mutation<Category, { id: ID } & CategoryInput>({
-      query: ({ id, ...body }) => ({
-        url: `/categories/${id}`,
-        method: 'PATCH',
-        body: {
+      query: ({ id, ...body }) => {
+        const payload: Record<string, unknown> = {
           name: body.name,
           description: body.description || '',
           type: body.type,
-          ...(body.status ? { status: body.status } : {}),
-        },
-      }),
+        }
+        if (body.parentId !== undefined) payload.parentId = body.parentId
+        if (body.status) payload.status = body.status
+        return {
+          url: `/categories/${id}`,
+          method: 'PATCH',
+          body: payload,
+        }
+      },
       transformResponse: (response: any) => mapBackendCategory(response?.data || response),
       invalidatesTags: ['Category'],
     }),
@@ -104,6 +146,7 @@ export const categoriesApi = api.injectEndpoints({
 
 export const {
   useGetCategoriesQuery,
+  useGetSingleCategoryQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useToggleCategoryMutation,
