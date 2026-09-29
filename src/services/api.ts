@@ -36,6 +36,7 @@ export const api = createApi({
     'SupportThread',
     'CityAdConfig',
     'AdvertisementPayment',
+    'Notification',
   ],
   endpoints: () => ({}),
 })
