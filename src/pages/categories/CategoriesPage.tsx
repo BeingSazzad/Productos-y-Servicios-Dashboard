@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/Badge'
 import { StoreTypeBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { toast } from '@/components/ui/Toast'
+import { Pagination } from '@/components/ui/Pagination'
+import { PAGE_SIZE } from '@/lib/constants'
 import { CategoryDetailsModal } from './CategoryDetailsModal'
 import {
   useGetCategoriesQuery,
@@ -40,8 +42,10 @@ export default function CategoriesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const typeParam = searchParams.get('type') || searchParams.get('tab') || 'product'
   const type = (['product', 'service'].includes(typeParam) ? typeParam : 'product') as StoreType
+  const [page, setPage] = useState(1)
 
   const handleTypeChange = (newType: string) => {
+    setPage(1)
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.set('type', newType)
@@ -49,8 +53,13 @@ export default function CategoriesPage() {
     })
   }
 
-  // Filter categories by type query parameter: /categories?type=product or /categories?type=service
-  const { data: categories, isLoading } = useGetCategoriesQuery({ type })
+  // Filter categories by type query parameter and pagination
+  const { data, isLoading, isFetching } = useGetCategoriesQuery({
+    type,
+    page,
+    pageSize: PAGE_SIZE,
+  })
+  const categories = data?.items ?? []
   const [toggleCategory] = useToggleCategoryMutation()
   const [deleteCategory, { isLoading: deleting }] = useDeleteCategoryMutation()
 
@@ -203,11 +212,19 @@ export default function CategoriesPage() {
           columns={columns}
           rows={rows}
           rowKey={(c) => c.id}
-          loading={isLoading}
+          loading={isLoading || isFetching}
           onRowClick={(c) => setViewingId(c.id)}
           emptyTitle="No categories"
           emptyDescription={`Add your first category for ${type === 'product' ? 'products' : 'services'}.`}
         />
+        {data && (
+          <Pagination
+            page={page}
+            pageSize={data.pageSize}
+            total={data.total}
+            onPageChange={setPage}
+          />
+        )}
       </Card>
 
       <CategoryDetailsModal

@@ -1,4 +1,5 @@
 import { api } from '@/services/api'
+import type { Paginated } from '@/types/api.types'
 import type { ID } from '@/types/common.types'
 import type { Category, StoreType } from '@/types/models'
 
@@ -45,18 +46,23 @@ export function mapBackendCategory(raw: any): Category {
 
 export interface GetCategoriesParams {
   type?: StoreType
+  page?: number
+  pageSize?: number
+  limit?: number
   searchTerm?: string
   status?: string
 }
 
 export const categoriesApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getCategories: builder.query<Category[], GetCategoriesParams | StoreType | void>({
+    getCategories: builder.query<Paginated<Category>, GetCategoriesParams | StoreType | void>({
       query: (params) => {
-        const queryParams: Record<string, string> = {}
+        const queryParams: Record<string, string | number> = {}
         const type = typeof params === 'string' ? params : params?.type
         if (type) queryParams.type = type
         if (typeof params === 'object' && params !== null) {
+          if (params.page) queryParams.page = params.page
+          if (params.pageSize || params.limit) queryParams.limit = params.pageSize || params.limit!
           if (params.searchTerm) queryParams.searchTerm = params.searchTerm
           if (params.status && params.status !== 'all') queryParams.status = params.status
         }
@@ -66,13 +72,22 @@ export const categoriesApi = api.injectEndpoints({
           params: queryParams,
         }
       },
-      transformResponse: (response: any): Category[] => {
-        const list = Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response)
-          ? response
-          : []
-        return list.map(mapBackendCategory)
+      transformResponse: (response: any): Paginated<Category> => {
+        let list: any[] = []
+        if (Array.isArray(response?.data)) {
+          list = response.data
+        } else if (Array.isArray(response?.data?.data)) {
+          list = response.data.data
+        } else if (Array.isArray(response)) {
+          list = response
+        }
+        const meta = response?.meta || response?.data?.meta || {}
+        return {
+          items: list.map(mapBackendCategory),
+          total: meta.total ?? list.length,
+          page: meta.page ?? 1,
+          pageSize: meta.limit ?? meta.pageSize ?? 10,
+        }
       },
       providesTags: ['Category'],
     }),
