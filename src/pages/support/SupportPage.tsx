@@ -30,16 +30,11 @@ export default function SupportPage() {
   useSocketEvents(activeId)
 
   const debouncedSearch = useDebounce(search)
-  const { data: chatsList, isLoading } = useGetChatsQuery()
+  const searchTerm = debouncedSearch.trim()
+  const { data: chatsList, isLoading } = useGetChatsQuery(
+    searchTerm ? { searchTerm } : undefined,
+  )
   const chats = chatsList ?? []
-
-  const filteredChats = chats.filter((c) => {
-    if (!debouncedSearch.trim()) return true
-    const term = debouncedSearch.toLowerCase()
-    const pName = c.participants?.some((p) => p.name?.toLowerCase().includes(term))
-    const lastMsg = c.lastMessage?.text?.toLowerCase().includes(term)
-    return pName || lastMsg
-  })
 
   const activeChat = chats.find((c) => c.id === activeId || c._id === activeId) ?? null
 
@@ -74,10 +69,10 @@ export default function SupportPage() {
           <div className="scrollbar-thin flex-1 overflow-y-auto">
             {isLoading ? (
               <LoadingState />
-            ) : filteredChats.length === 0 ? (
+            ) : chats.length === 0 ? (
               <EmptyState icon={LifeBuoy} title="No conversations" description="You're all caught up." />
             ) : (
-              filteredChats.map((c) => {
+              chats.map((c) => {
                 const targetId = c.id || c._id
                 return (
                   <ChatRow

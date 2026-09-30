@@ -40,9 +40,14 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(4px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'pulse-soft': {
+          '0%, 100%': { backgroundColor: 'rgba(236, 253, 243, 0.4)' },
+          '50%': { backgroundColor: 'rgba(209, 250, 223, 0.75)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.2s ease-out',
+        'pulse-soft': 'pulse-soft 2.5s ease-in-out infinite',
       },
     },
   },

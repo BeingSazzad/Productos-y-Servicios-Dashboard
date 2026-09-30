@@ -156,6 +156,38 @@ export function mapBackendPackageToPlan(raw: any): Plan {
   }
 }
 
+const TX_STATUS_MAP: Record<string, Transaction['status']> = {
+  paid: 'paid',
+  pending: 'pending',
+  failed: 'failed',
+  refunded: 'refunded',
+}
+
+export function mapBackendTransaction(raw: any): Transaction {
+  if (!raw) return raw
+  const statusKey = String(raw.status || '').toLowerCase()
+  const displayValue = (value?: string | null) => {
+    if (!value || value === 'N/A') return ''
+    return value
+  }
+
+  return {
+    id: String(raw._id || raw.id || ''),
+    invoiceNo: raw.invoiceNumber || raw.invoice || raw.invoiceNo || '',
+    storeName: displayValue(raw.storeName || raw.store),
+    planName: displayValue(raw.planName || raw.plan),
+    amount: Number(raw.amount) || 0,
+    currency: raw.currency || 'USD',
+    status: TX_STATUS_MAP[statusKey] || 'pending',
+    method: raw.method || '',
+    createdAt: raw.createdAt || raw.date || '',
+    dateLabel: raw.date || '',
+    invoiceUrl: raw.invoiceUrl || '',
+    invoiceDownloadUrl: raw.invoiceDownloadUrl || '',
+    canRefund: Boolean(raw.canRefund),
+  }
+}
+
 /** Subscriptions + plans (billing domain). */
 export const billingApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -164,7 +196,7 @@ export const billingApi = api.injectEndpoints({
         const queryParams: Record<string, any> = {}
         if (params?.page) queryParams.page = params.page
         if (params?.pageSize) queryParams.limit = params.pageSize
-        if (params?.search && params.search.trim()) queryParams.search = params.search.trim()
+        if (params?.search && params.search.trim()) queryParams.searchTerm = params.search.trim()
         if (params?.status && params.status !== 'all') queryParams.status = params.status
         if (params?.plan && params.plan !== 'all') queryParams.packageId = params.plan
         return {
@@ -291,16 +323,35 @@ export const billingApi = api.injectEndpoints({
     }),
 
     /* Transactions / payment history */
-    getTransactions: builder.query<Paginated<Transaction>, ListParams>({
-      query: (params) => ({ url: '/transactions', method: 'GET', params }),
-      transformResponse: (response: any): Paginated<Transaction> => {
-        const items = Array.isArray(response?.data) ? response.data : []
-        const meta = response?.meta || {}
+    getTransactions: builder.query<Paginated<Transaction>, ListParams | void>({
+      query: (params) => {
+        const queryParams: Record<string, unknown> = {}
+        if (params?.page) queryParams.page = params.page
+        if (params?.pageSize) queryParams.limit = params.pageSize
+        if (params?.search && params.search.trim()) queryParams.searchTerm = params.search.trim()
+        if (params?.status && params.status !== 'all') queryParams.status = params.status
         return {
-          items,
-          total: meta.total ?? items.length,
+          url: '/transactions',
+          method: 'GET',
+          params: queryParams,
+        }
+      },
+      transformResponse: (response: any): Paginated<Transaction> => {
+        let rawData = response?.data
+        if (rawData && !Array.isArray(rawData) && Array.isArray(rawData.data)) {
+          rawData = rawData.data
+        }
+        const dataList = Array.isArray(rawData)
+          ? rawData
+          : Array.isArray(response)
+          ? response
+          : []
+        const meta = response?.meta || response?.data?.meta || {}
+        return {
+          items: dataList.map(mapBackendTransaction),
+          total: meta.total ?? dataList.length,
           page: meta.page ?? 1,
-          pageSize: meta.limit ?? 10,
+          pageSize: meta.limit ?? meta.pageSize ?? 10,
         }
       },
       providesTags: ['Transaction'],
@@ -308,7 +359,7 @@ export const billingApi = api.injectEndpoints({
 
     refundTransaction: builder.mutation<Transaction, ID>({
       query: (id) => ({ url: `/transactions/${id}/refund`, method: 'POST' }),
-      transformResponse: (response: any) => response?.data || response,
+      transformResponse: (response: any) => mapBackendTransaction(response?.data || response),
       invalidatesTags: ['Transaction'],
     }),
   }),

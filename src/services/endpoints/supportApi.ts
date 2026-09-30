@@ -24,11 +24,15 @@ export interface GetMessagesParams {
 
 export const supportApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getChats: builder.query<Chat[], void>({
-      query: () => ({
-        url: '/chats',
-        method: 'GET',
-      }),
+    getChats: builder.query<Chat[], { searchTerm?: string } | void>({
+      query: (arg) => {
+        const searchTerm = arg?.searchTerm?.trim()
+        return {
+          url: '/chats',
+          method: 'GET',
+          params: searchTerm ? { searchTerm } : undefined,
+        }
+      },
       transformResponse: (response: any): Chat[] => {
         const chatsRaw = response?.data?.chats || response?.data || response || []
         const chatList = Array.isArray(chatsRaw) ? chatsRaw : []

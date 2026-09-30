@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapBackendSubscriptionToSubscription, mapBackendPackageToPlan } from './billingApi'
+import { mapBackendSubscriptionToSubscription, mapBackendPackageToPlan, mapBackendTransaction } from './billingApi'
 
 describe('mapBackendSubscriptionToSubscription', () => {
   it('correctly transforms real GET /subscriptions raw backend object into Subscription model', () => {
@@ -138,5 +138,48 @@ describe('mapBackendSubscriptionToSubscription', () => {
     expect(mapped.trialPeriodDays).toBe(30)
     expect(mapped.features).toHaveLength(4)
     expect(mapped.isActive).toBe(true)
+  })
+})
+
+describe('mapBackendTransaction', () => {
+  it('maps nested GET /transactions payload fields into the table model', () => {
+    const mapped = mapBackendTransaction({
+      _id: '6aab7d5908ed98aad83fd8a5',
+      invoice: 'INV-2026-1022',
+      invoiceNumber: 'INV-2026-1022',
+      invoiceUrl: '/uploads/invoices/INV-2026-1022.pdf',
+      invoiceDownloadUrl: '/api/v1/invoices/download/INV-2026-1022',
+      store: 'Sheba xyz',
+      plan: 'MEMBRESÍA ANUAL',
+      method: 'Datafast',
+      amount: 17.25,
+      date: 'Sep 17, 2026',
+      status: 'Paid',
+      canRefund: true,
+    })
+
+    expect(mapped.id).toBe('6aab7d5908ed98aad83fd8a5')
+    expect(mapped.invoiceNo).toBe('INV-2026-1022')
+    expect(mapped.storeName).toBe('Sheba xyz')
+    expect(mapped.planName).toBe('MEMBRESÍA ANUAL')
+    expect(mapped.method).toBe('Datafast')
+    expect(mapped.amount).toBe(17.25)
+    expect(mapped.status).toBe('paid')
+    expect(mapped.canRefund).toBe(true)
+    expect(mapped.dateLabel).toBe('Sep 17, 2026')
+  })
+
+  it('treats N/A store and plan as empty display values', () => {
+    const mapped = mapBackendTransaction({
+      _id: '1',
+      store: 'N/A',
+      plan: 'N/A',
+      status: 'Pending',
+      amount: 10,
+    })
+
+    expect(mapped.storeName).toBe('')
+    expect(mapped.planName).toBe('')
+    expect(mapped.status).toBe('pending')
   })
 })

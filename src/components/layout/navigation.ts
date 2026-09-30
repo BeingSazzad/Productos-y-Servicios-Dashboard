@@ -13,6 +13,9 @@ import {
   FileText,
   HelpCircle,
   UserCog,
+  MapPinned,
+  Banknote,
+  ShieldAlert,
   type LucideIcon,
 } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
@@ -24,7 +27,7 @@ export interface NavItem {
   /** Exact match only (used for the dashboard index route). */
   end?: boolean
   /** Optional badge key resolved at render time. */
-  badgeKey?: 'support'
+  badgeKey?: 'support' | 'reports'
 }
 
 export interface NavSection {
@@ -58,6 +61,8 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Content (CMS)',
     items: [
       { label: 'Banners', to: ROUTES.banners, icon: Image },
+      { label: 'Ads Configuration', to: ROUTES.adsConfiguration, icon: MapPinned },
+      { label: 'Advertisements Payment', to: ROUTES.advertisementsPayments, icon: Banknote },
       { label: 'Pages', to: ROUTES.pages, icon: FileText },
       { label: 'FAQs', to: ROUTES.faqs, icon: HelpCircle },
     ],
@@ -67,6 +72,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Support', to: ROUTES.support, icon: LifeBuoy, badgeKey: 'support' },
       { label: 'Announcements', to: ROUTES.announcements, icon: Megaphone },
+      { label: 'Reports', to: ROUTES.reports, icon: ShieldAlert, badgeKey: 'reports' },
     ],
   },
   {

@@ -6,10 +6,11 @@ import type { Option } from '@/types/common.types'
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
   options: Option[]
+  placeholder?: string
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, options, className, id, ...props },
+  { label, options, placeholder, className, id, ...props },
   ref,
 ) {
   const selectId = id ?? props.name
@@ -27,10 +28,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           className={cn(
             'h-10 w-full appearance-none rounded-lg border border-ink-200 bg-white px-3 pr-9 text-sm text-ink-900',
             'focus:outline-none focus:ring-2 focus:ring-brand-600/30 focus:border-brand-600',
+            'disabled:cursor-not-allowed disabled:bg-ink-50',
             className,
           )}
           {...props}
         >
+          {placeholder && <option value="">{placeholder}</option>}
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}

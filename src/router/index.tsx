@@ -17,10 +17,13 @@ import PlansPage from '@/pages/plans/PlansPage'
 import TransactionsPage from '@/pages/billing/TransactionsPage'
 import CategoriesPage from '@/pages/categories/CategoriesPage'
 import BannersPage from '@/pages/cms/BannersPage'
+import AdsConfigurationPage from '@/pages/ads/AdsConfigurationPage'
+import AdvertisementsPaymentsPage from '@/pages/ads/AdvertisementsPaymentsPage'
 import PagesPage from '@/pages/cms/PagesPage'
 import FaqsPage from '@/pages/cms/FaqsPage'
 import SupportPage from '@/pages/support/SupportPage'
 import AnnouncementsPage from '@/pages/engagement/AnnouncementsPage'
+import ReportsPage from '@/pages/reports/ReportsPage'
 import AdminsPage from '@/pages/admins/AdminsPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import NotFoundPage from '@/pages/NotFoundPage'
@@ -48,11 +51,14 @@ export const router = createBrowserRouter([
           { path: ROUTES.transactions, element: <TransactionsPage /> },
 
           { path: ROUTES.banners, element: <BannersPage /> },
+          { path: ROUTES.adsConfiguration, element: <AdsConfigurationPage /> },
+          { path: ROUTES.advertisementsPayments, element: <AdvertisementsPaymentsPage /> },
           { path: ROUTES.pages, element: <PagesPage /> },
           { path: ROUTES.faqs, element: <FaqsPage /> },
 
           { path: ROUTES.support, element: <SupportPage /> },
           { path: ROUTES.announcements, element: <AnnouncementsPage /> },
+          { path: ROUTES.reports, element: <ReportsPage /> },
 
           { path: ROUTES.admins, element: <AdminsPage /> },
           { path: ROUTES.settings, element: <SettingsPage /> },

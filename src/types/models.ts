@@ -234,13 +234,16 @@ export interface Subscription {
 export interface Category {
   id: ID
   _id?: string
+  parentId?: string | null
   name: string
   description?: string
   type: StoreType
   status?: string
   isDeleted?: boolean
   listingCount: number
+  listingsCount?: number
   isActive: boolean
+  subCategories?: Category[]
   createdAt?: ISODate
   updatedAt?: ISODate
 }
@@ -337,6 +340,40 @@ export interface Admin {
   updatedAt?: ISODate
 }
 
+/* ---------------------- Ads / City slots -------------------------- */
+
+export interface FeaturedPositionPrice {
+  position: number
+  price: number
+}
+
+/** Per-city / location ad channel slot configuration (featured + banner). */
+export interface CityAdConfiguration {
+  id: ID
+  _id?: ID
+  country: string
+  countryCode: string
+  province?: string
+  provinceCode?: string
+  city: string
+  canton?: string
+  sector?: string
+  neighborhood?: string
+  latitude: number
+  longitude: number
+  bannerCapacity?: number
+  featuredCapacity: number
+  bannerEnabled?: boolean
+  featuredEnabled: boolean
+  featuredPositionPricing: FeaturedPositionPrice[]
+  defaultFeaturedImage?: string
+  status: EntityStatus | string
+  lockVersion?: number
+  isDeleted?: boolean
+  createdAt?: ISODate
+  updatedAt?: ISODate
+}
+
 /* ------------------------------ CMS ------------------------------- */
 
 export type BannerPlacement = 'home_top' | 'explore' | 'product_store' | 'service_store'
@@ -397,9 +434,79 @@ export interface Transaction {
   amount: number
   currency: string
   status: TransactionStatus
-  method: 'card' | 'mobile_banking' | 'wallet'
+  method: string
   invoiceNo: string
   createdAt: ISODate
+  dateLabel?: string
+  invoiceUrl?: string
+  invoiceDownloadUrl?: string
+  canRefund?: boolean
+}
+
+/* --------------------- Advertisement payments --------------------- */
+
+export interface AdvertisementPaymentSeller {
+  id: ID
+  name: string
+  email?: string
+  phone?: string
+  profileImage?: string | null
+}
+
+export interface AdvertisementPaymentStore {
+  id: ID
+  displayName?: string | null
+  logo?: string | null
+  storeType?: string
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+}
+
+export interface AdvertisementPaymentPackage {
+  id: ID
+  name: string
+  duration?: string
+  price?: number
+}
+
+export interface AdvertisementPaymentSubscription {
+  status?: string
+  expiresAt?: ISODate
+  remainingDays?: number
+  isExpired?: boolean
+}
+
+export interface AdvertisementPaymentCity {
+  id?: ID
+  name: string
+  country?: string
+  countryCode?: string
+  latitude?: number
+  longitude?: number
+}
+
+export interface AdvertisementPayment {
+  id: ID
+  subscriptionId?: ID
+  seller?: AdvertisementPaymentSeller | null
+  store?: AdvertisementPaymentStore | null
+  city?: AdvertisementPaymentCity | null
+  position?: number | null
+  amountPaid: number
+  trxId?: string | null
+  stripeSessionId?: string | null
+  invoiceNumber?: string | null
+  invoiceUrl?: string | null
+  invoiceDownloadUrl?: string | null
+  paymentMethod?: string
+  paymentStatus?: string
+  paymentDate?: ISODate
+  isTrial?: boolean
+  package?: AdvertisementPaymentPackage | null
+  subscription?: AdvertisementPaymentSubscription | null
+  advertisement?: unknown
+  isAdSubmitted?: boolean
 }
 
 /* --------------------------- Engagement --------------------------- */
