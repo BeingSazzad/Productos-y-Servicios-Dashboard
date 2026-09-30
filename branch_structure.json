@@ -1,0 +1,15 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "jowel",
+    "main"
+  ],
+  "parent": {
+    "jowel": "main",
+    "main": null
+  },
+  "order": [
+    "main",
+    "jowel"
+  ]
+}

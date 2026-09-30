@@ -32,7 +32,6 @@ import {
   useUpdateReportStatusMutation,
   type ReportItem,
   type ReportStatus,
-  type ReportActionTaken,
 } from '@/services/endpoints/reportsApi'
 import { formatDistanceToNow, parseISO, format } from 'date-fns'
 
@@ -70,26 +69,6 @@ const statusToneMap: Record<ReportStatus, BadgeTone> = {
   dismissed: 'gray',
 }
 
-const actionTakenLabels: Record<ReportActionTaken, string> = {
-  none: 'None',
-  other: 'Other',
-  dismissed_no_violation: 'Dismissed (No Violation)',
-  content_removed: 'Content Removed',
-  user_blocked: 'User Blocked',
-  warning_issued: 'Warning Issued',
-  store_suspended: 'Store Suspended',
-}
-
-const actionTakenTones: Record<ReportActionTaken, BadgeTone> = {
-  none: 'gray',
-  other: 'purple',
-  dismissed_no_violation: 'gray',
-  content_removed: 'red',
-  user_blocked: 'red',
-  warning_issued: 'amber',
-  store_suspended: 'red',
-}
-
 export default function ReportsPage() {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -113,13 +92,13 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editStatus, setEditStatus] = useState<ReportStatus>('pending')
-  const [editActionTaken, setEditActionTaken] = useState<ReportActionTaken>('none')
   const [editAdminNotes, setEditAdminNotes] = useState('')
+
+  const isFinalized = selectedReport?.status === 'resolved' || selectedReport?.status === 'dismissed'
 
   const handleOpenActionModal = (report: ReportItem) => {
     setSelectedReport(report)
     setEditStatus(report.status)
-    setEditActionTaken(report.actionTaken || 'none')
     setEditAdminNotes(report.adminNotes || '')
     setModalOpen(true)
   }
@@ -132,11 +111,15 @@ export default function ReportsPage() {
   const handleSaveReportStatus = async () => {
     if (!selectedReport) return
 
+    if (selectedReport.status === 'resolved' || selectedReport.status === 'dismissed') {
+      toast.error('This report is already finalized and cannot be updated.')
+      return
+    }
+
     try {
       await updateReportStatus({
         id: selectedReport.id,
         status: editStatus,
-        actionTaken: editActionTaken,
         adminNotes: editAdminNotes.trim(),
       }).unwrap()
 
@@ -236,18 +219,6 @@ export default function ReportsPage() {
       ),
     },
     {
-      key: 'actionTaken',
-      header: 'Action Taken',
-      render: (r) => {
-        const action = r.actionTaken || 'none'
-        return (
-          <Badge tone={actionTakenTones[action] || 'gray'}>
-            {actionTakenLabels[action] || action}
-          </Badge>
-        )
-      },
-    },
-    {
       key: 'createdAt',
       header: 'Date',
       render: (r) => (
@@ -261,19 +232,23 @@ export default function ReportsPage() {
       key: 'actions',
       header: 'Action',
       align: 'right',
-      render: (r) => (
-        <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenActionModal(r)}
-            className="gap-1.5"
-          >
-            <ShieldAlert className="h-3.5 w-3.5 text-brand-600" />
-            <span>Take Action</span>
-          </Button>
-        </div>
-      ),
+      render: (r) => {
+        const finalized = r.status === 'resolved' || r.status === 'dismissed'
+        return (
+          <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenActionModal(r)}
+              disabled={finalized}
+              className="gap-1.5"
+            >
+              <ShieldAlert className="h-3.5 w-3.5 text-brand-600" />
+              <span>{finalized ? (r.status === 'resolved' ? 'Resolved' : 'Dismissed') : 'Take Action'}</span>
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
@@ -450,11 +425,12 @@ export default function ReportsPage() {
           footer={
             <div className="flex items-center justify-end gap-2.5">
               <Button variant="outline" onClick={handleCloseModal} disabled={isUpdating}>
-                Cancel
+                {isFinalized ? 'Close' : 'Cancel'}
               </Button>
               <Button
                 variant="primary"
                 onClick={handleSaveReportStatus}
+                disabled={isFinalized || isUpdating}
                 loading={isUpdating}
                 className="gap-1.5"
               >
@@ -570,54 +546,47 @@ export default function ReportsPage() {
               )}
             </div>
 
+            {isFinalized && (
+              <div className="flex items-center gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-xs text-ink-700">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>
+                  This report has been marked as{' '}
+                  <strong className="capitalize">{selectedReport.status.replace('_', ' ')}</strong>. Its status is finalized and cannot be modified.
+                </span>
+              </div>
+            )}
+
             {/* Admin Action Form */}
             <div className="space-y-4 rounded-lg border border-ink-200 bg-white p-4">
               <h4 className="text-sm font-semibold text-ink-900 flex items-center gap-1.5">
                 <ShieldAlert className="h-4 w-4 text-brand-600" />
-                Moderation Action & Resolution
+                Moderation Status & Notes
               </h4>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <Select
-                    label="Update Status"
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as ReportStatus)}
-                    options={[
-                      { label: 'Pending', value: 'pending' },
-                      { label: 'Under Review', value: 'under_review' },
-                      { label: 'Resolved', value: 'resolved' },
-                      { label: 'Dismissed', value: 'dismissed' },
-                    ]}
-                  />
-                </div>
-
-                <div>
-                  <Select
-                    label="Action Taken"
-                    value={editActionTaken}
-                    onChange={(e) => setEditActionTaken(e.target.value as ReportActionTaken)}
-                    options={[
-                      { label: 'None', value: 'none' },
-                      { label: 'Warning Issued', value: 'warning_issued' },
-                      { label: 'Content Removed', value: 'content_removed' },
-                      { label: 'User Blocked', value: 'user_blocked' },
-                      { label: 'Store Suspended', value: 'store_suspended' },
-                      { label: 'Dismissed (No Violation)', value: 'dismissed_no_violation' },
-                      { label: 'Other', value: 'other' },
-                    ]}
-                  />
-                </div>
+              <div>
+                <Select
+                  label="Update Status"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as ReportStatus)}
+                  disabled={isFinalized}
+                  options={[
+                    { label: 'Pending', value: 'pending' },
+                    { label: 'Under Review', value: 'under_review' },
+                    { label: 'Resolved', value: 'resolved' },
+                    { label: 'Dismissed', value: 'dismissed' },
+                  ]}
+                />
               </div>
 
               <div>
                 <Textarea
                   label="Admin Notes / Investigation Findings"
-                  placeholder="E.g., Investigated transaction logs and found clear evidence of fraud..."
+                  placeholder="E.g., Investigated transaction logs and verified report details..."
                   value={editAdminNotes}
                   onChange={(e) => setEditAdminNotes(e.target.value)}
+                  disabled={isFinalized}
                   rows={3}
-                  hint="Provide rationale for the action taken. This will be stored for audit and review history."
+                  hint="Provide investigation findings or notes. This will be stored for audit and review history."
                 />
               </div>
             </div>
