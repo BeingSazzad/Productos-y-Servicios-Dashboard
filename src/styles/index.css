@@ -30,3 +30,8 @@
     @apply rounded-full bg-ink-200;
   }
 }
+
+/* Google Places autocomplete sits above modal (z-50) */
+.pac-container {
+  z-index: 80 !important;
+}

@@ -7,6 +7,7 @@ import { z } from 'zod'
 const envSchema = z.object({
   VITE_APP_NAME: z.string().min(1).default('Julio Admin'),
   VITE_API_URL: z.string().url().default('http://localhost:4000/api'),
+  VITE_GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
   VITE_USE_MOCKS: z
     .string()
     .optional()
@@ -23,5 +24,6 @@ if (!parsed.success) {
 export const env = {
   appName: parsed.data.VITE_APP_NAME,
   apiUrl: parsed.data.VITE_API_URL,
+  googleMapsApiKey: parsed.data.VITE_GOOGLE_MAPS_API_KEY,
   useMocks: parsed.data.VITE_USE_MOCKS,
 } as const

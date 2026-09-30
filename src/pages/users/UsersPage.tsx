@@ -23,7 +23,7 @@ export default function UsersPage() {
   const [updateStatus, { isLoading: updating }] = useUpdateUserStatusMutation()
 
   const columns: Column<User>[] = [
-    {
+    { 
       key: 'user',
       header: 'User',
       render: (u) => (

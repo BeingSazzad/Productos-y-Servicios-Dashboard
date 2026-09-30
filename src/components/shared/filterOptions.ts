@@ -40,12 +40,20 @@ export const REPORT_STATUS_OPTIONS: Option[] = [
   { label: 'Dismissed', value: 'dismissed' },
 ]
 
+export const AD_PAYMENT_STATUS_OPTIONS: Option[] = [
+  { label: 'All statuses', value: 'all' },
+  { label: 'Paid', value: 'PAID' },
+  { label: 'Trial', value: 'TRIAL' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Failed', value: 'FAILED' },
+]
+
 export const TRANSACTION_STATUS_OPTIONS: Option[] = [
   { label: 'All statuses', value: 'all' },
-  { label: 'Paid', value: 'paid' },
-  // { label: 'Pending', value: 'pending' },
-  { label: 'Failed', value: 'failed' },
-  { label: 'Refunded', value: 'refunded' },
+  { label: 'Paid', value: 'Paid' },
+  { label: 'Pending', value: 'Pending' },
+  { label: 'Failed', value: 'Failed' },
+  { label: 'Refunded', value: 'Refunded' },
 ]
 
 export const SUPPORT_STATUS_OPTIONS: Option[] = [

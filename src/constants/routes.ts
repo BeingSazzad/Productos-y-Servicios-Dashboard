@@ -24,10 +24,13 @@ export const ROUTES = {
   banners: '/cms/banners',
   pages: '/cms/pages',
   faqs: '/cms/faqs',
+  adsConfiguration: '/ads-configuration',
+  advertisementsPayments: '/advertisements-payments',
 
   // Engagement
   support: '/support',
   announcements: '/announcements',
+  reports: '/reports',
 
   // Administration
   admins: '/admins',

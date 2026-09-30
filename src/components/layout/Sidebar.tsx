@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Logo } from '@/components/shared/Logo'
 import { useGetSupportTicketsQuery } from '@/services/endpoints/supportApi'
+import { useGetReportStatsQuery } from '@/services/endpoints/reportsApi'
 import { NAV_SECTIONS, type NavItem } from './navigation'
 
 interface SidebarProps {
@@ -16,8 +17,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { data: tickets } = useGetSupportTicketsQuery({ pageSize: 100 })
   const unreadTickets = (tickets?.items ?? []).filter((t) => t.unread > 0).length
 
+  const { data: reportStats } = useGetReportStatsQuery()
+  const pendingReports = reportStats?.pendingReports ?? 0
+
   const badgeFor = (item: NavItem) => {
     if (item.badgeKey === 'support') return unreadTickets > 0 ? unreadTickets : null
+    if (item.badgeKey === 'reports') return pendingReports > 0 ? pendingReports : null
     return null
   }
 
