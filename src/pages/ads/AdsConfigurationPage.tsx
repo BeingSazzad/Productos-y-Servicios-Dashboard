@@ -53,13 +53,32 @@ const COUNTRY_OPTIONS: Option[] = getCountries().map((country) => ({
   value: country.isoCode,
 }))
 
-function syncPricing(capacity: number, existing: FeaturedPositionPrice[] = []): FeaturedPositionPrice[] {
+interface FormPositionPrice {
+  position: number
+  price: number | string
+}
+
+function syncPricing(
+  capacity: number,
+  existing: Array<{ position: number; price?: number | string }> = [],
+): FormPositionPrice[] {
   const n = Math.max(0, Math.floor(Number(capacity) || 0))
   return Array.from({ length: n }, (_, i) => ({
     position: i + 1,
-    price: Number(existing[i]?.price) || 0,
+    price:
+      existing[i]?.price !== undefined && existing[i]?.price !== null && existing[i]?.price !== ''
+        ? existing[i]!.price
+        : '',
   }))
 }
+
+function toPayloadPricing(pricing: FormPositionPrice[]): FeaturedPositionPrice[] {
+  return pricing.map((item) => ({
+    position: item.position,
+    price: Number(item.price) || 0,
+  }))
+}
+
 
 export default function AdsConfigurationPage() {
   const { search, setSearch, status, setStatus, page, setPage, params } = useListParams()
@@ -457,7 +476,7 @@ function CityAdConfigFormModal({
   const [featuredCapacity, setFeaturedCapacity] = useState(emptyForm.featuredCapacity)
   const [featuredEnabled, setFeaturedEnabled] = useState(emptyForm.featuredEnabled)
   const [status, setStatus] = useState(emptyForm.status)
-  const [pricing, setPricing] = useState<FeaturedPositionPrice[]>(emptyForm.featuredPositionPricing)
+  const [pricing, setPricing] = useState<FormPositionPrice[]>(emptyForm.featuredPositionPricing)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [locationReady, setLocationReady] = useState(false)
@@ -625,7 +644,7 @@ function CityAdConfigFormModal({
 
   const handlePriceChange = (index: number, value: string) => {
     setPricing((current) =>
-      current.map((item, i) => (i === index ? { ...item, price: Number(value) || 0 } : item)),
+      current.map((item, i) => (i === index ? { ...item, price: value } : item)),
     )
   }
 
@@ -677,7 +696,7 @@ function CityAdConfigFormModal({
       longitude: Number(longitude),
       featuredCapacity: Number(featuredCapacity) || 0,
       featuredEnabled,
-      featuredPositionPricing: syncPricing(Number(featuredCapacity) || 0, pricing),
+      featuredPositionPricing: toPayloadPricing(syncPricing(Number(featuredCapacity) || 0, pricing)),
       status,
       defaultFeaturedImageFile: imageFile,
     }
@@ -774,7 +793,7 @@ function CityAdConfigFormModal({
                   )}
                 </div>
                 <Input
-                  placeholder="Enter city / canton"
+                  placeholder="e.g. Quito, Guayaquil, Cuenca"
                   value={city}
                   onChange={(e) => {
                     setCity(e.target.value)
@@ -834,7 +853,7 @@ function CityAdConfigFormModal({
                 label="Latitude"
                 type="number"
                 step="any"
-                placeholder="Latitude"
+                placeholder="e.g. -0.1807"
                 value={latitude}
                 onChange={(e) => setLatitude(e.target.value)}
                 required
@@ -843,7 +862,7 @@ function CityAdConfigFormModal({
                 label="Longitude"
                 type="number"
                 step="any"
-                placeholder="Longitude"
+                placeholder="e.g. -78.4678"
                 value={longitude}
                 onChange={(e) => setLongitude(e.target.value)}
                 required
@@ -874,6 +893,7 @@ function CityAdConfigFormModal({
                 type="number"
                 min={0}
                 max={50}
+                placeholder="e.g. 5"
                 value={featuredCapacity}
                 onChange={(e) => handleCapacityChange(e.target.value)}
                 required
@@ -934,7 +954,8 @@ function CityAdConfigFormModal({
                   type="number"
                   min={0}
                   step="any"
-                  value={String(item.price)}
+                  placeholder="e.g. 25"
+                  value={item.price !== undefined && item.price !== null ? String(item.price) : ''}
                   onChange={(e) => handlePriceChange(index, e.target.value)}
                   required
                 />
